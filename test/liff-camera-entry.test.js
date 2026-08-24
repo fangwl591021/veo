@@ -60,6 +60,6 @@ test("member entry URLs prefer this project's LIFF and preserve legacy invite pa
 });
 
 test("production index loads the cache-busted LIFF camera build", () => {
-  assert.match(index, /app-20260815-132\.js\?v=20260815-132/);
+  assert.match(index, /app-20260815-132\.js\?v=20260825-1/);
   assert.match(index, /styles\.css\?v=20260813-71/);
 });

@@ -326,7 +326,8 @@ export async function getAdminAccess(db, userId, configuredSubjects) {
   const allowed = new Set(String(configuredSubjects || '').split(',').map(value => value.trim()).filter(Boolean));
   const identity = await db.prepare(`SELECT provider_subject FROM external_identities WHERE platform_user_id = ? AND provider = 'line_login' AND verification_status = 'verified'`)
     .bind(userId).first();
-  const owner = Boolean(identity?.provider_subject && allowed.has(identity.provider_subject));
+  const lineUid = String(identity?.provider_subject || '').trim();
+  const owner = Boolean(lineUid && allowed.has(lineUid));
   if (owner) return {
     canAccessAdmin: true,
     canManagePermissions: true,
@@ -336,18 +337,22 @@ export async function getAdminAccess(db, userId, configuredSubjects) {
     operatorAccess: false,
     role: 'owner'
   };
-  const permission = await db.prepare(`SELECT system_access, operator_access FROM admin_member_permissions WHERE platform_user_id = ?`)
-    .bind(userId).first();
+  // Keep only a pre-existing system administrator as a bootstrap path while
+  // the first verified LINE UID whitelist entry is assigned. New grants and
+  // all operator access are authorized exclusively by verified LINE UID.
+  const permission = lineUid
+    ? await db.prepare(`SELECT system_access, operator_access FROM admin_member_permissions WHERE line_uid = ? LIMIT 1`).bind(lineUid).first()
+    : await db.prepare(`SELECT system_access, 0 AS operator_access FROM admin_member_permissions WHERE platform_user_id = ? AND system_access = 1 LIMIT 1`).bind(userId).first();
   const systemAccess = Number(permission?.system_access || 0) === 1;
   const operatorAccess = Number(permission?.operator_access || 0) === 1;
   return {
     canAccessAdmin: systemAccess || operatorAccess,
-    canManagePermissions: false,
+    canManagePermissions: systemAccess,
     canManagePoints: systemAccess,
     canManageRichMenu: systemAccess,
     systemAccess,
     operatorAccess,
-    role: systemAccess ? 'system' : operatorAccess ? 'operator' : 'member'
+    role: systemAccess ? (lineUid ? 'system' : 'legacy_system') : operatorAccess ? 'operator' : 'member'
   };
 }
 

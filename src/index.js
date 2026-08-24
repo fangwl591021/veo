@@ -396,7 +396,7 @@ async function mergedAdminAccess(env, member) {
 
 async function currentAdmin(request, env) {
   const member = await currentMember(request, env);
-  if (!member) return null;
+  if (!member?.profileCompletedAt) return null;
   const adminAccess = await mergedAdminAccess(env,member);
   return adminAccess.canAccessAdmin ? { ...member, adminAccess } : null;
 }
@@ -2053,7 +2053,8 @@ async function app(request, env, ctx) {
         SELECT pu.id, pu.status, pu.created_at, mp.display_name, mp.picture_url, mp.phone, mp.email,
           mp.gender, mp.member_number, mp.company_member_number, mp.industry, mp.birthday, mp.address, mp.admin_note, mp.profile_completed_at, COALESCE(pa.balance, 0) AS points_balance,
           rr.referrer_user_id, ref_mp.display_name AS referrer_name, ref_mp.member_number AS referrer_member_number,
-          COALESCE(amp.system_access, 0) AS system_access, COALESCE(amp.operator_access, 0) AS operator_access
+          COALESCE(amp.system_access, 0) AS system_access, COALESCE(amp.operator_access, 0) AS operator_access,
+          (SELECT ei.provider_subject FROM external_identities ei WHERE ei.platform_user_id=pu.id AND ei.provider='line_login' AND ei.verification_status='verified' ORDER BY ei.last_verified_at DESC LIMIT 1) AS line_uid
         FROM platform_users pu
         LEFT JOIN member_profiles mp ON mp.platform_user_id = pu.id
         LEFT JOIN point_accounts pa ON pa.platform_user_id = pu.id AND pa.program_id = 'program_main'
@@ -2077,7 +2078,8 @@ async function app(request, env, ctx) {
         SELECT pu.id, pu.status, pu.created_at, mp.display_name, mp.picture_url, mp.phone, mp.email,
           mp.gender, mp.member_number, mp.company_member_number, mp.industry, mp.birthday, mp.address, mp.admin_note, mp.profile_completed_at, COALESCE(pa.balance, 0) AS points_balance,
           rr.referrer_user_id, ref_mp.display_name AS referrer_name, ref_mp.member_number AS referrer_member_number,
-          COALESCE(amp.system_access, 0) AS system_access, COALESCE(amp.operator_access, 0) AS operator_access
+          COALESCE(amp.system_access, 0) AS system_access, COALESCE(amp.operator_access, 0) AS operator_access,
+          (SELECT ei.provider_subject FROM external_identities ei WHERE ei.platform_user_id=pu.id AND ei.provider='line_login' AND ei.verification_status='verified' ORDER BY ei.last_verified_at DESC LIMIT 1) AS line_uid
         FROM platform_users pu
         LEFT JOIN member_profiles mp ON mp.platform_user_id = pu.id
         LEFT JOIN point_accounts pa ON pa.platform_user_id = pu.id AND pa.program_id = 'program_main'
@@ -2132,20 +2134,24 @@ async function app(request, env, ctx) {
       if (!admin.adminAccess.canManagePermissions) return json({ success: false, error: "Only the primary administrator can assign permissions" }, 403);
       const memberId = memberPermissionsMatch[1];
       const body = (await readJson(request)) || {};
-      const target = await env.DB.prepare("SELECT id FROM platform_users WHERE id = ? AND status = 'active'").bind(memberId).first();
+      const target = await env.DB.prepare(`SELECT pu.id,
+        (SELECT ei.provider_subject FROM external_identities ei WHERE ei.platform_user_id=pu.id AND ei.provider='line_login' AND ei.verification_status='verified' ORDER BY ei.last_verified_at DESC LIMIT 1) AS line_uid
+        FROM platform_users pu WHERE pu.id = ? AND pu.status = 'active'`).bind(memberId).first();
       if (!target) return json({ success: false, error: "Member not found" }, 404);
+      if (!target.line_uid) return json({ success:false, error:"會員尚未綁定已驗證的 LINE UID，無法加入後台白名單" }, 409);
       const systemAccess = body.systemAccess === true ? 1 : 0;
       const operatorAccess = body.operatorAccess === true ? 1 : 0;
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO admin_member_permissions
-          (platform_user_id, system_access, operator_access, granted_by_user_id)
-          VALUES (?, ?, ?, ?)
+          (platform_user_id, line_uid, system_access, operator_access, granted_by_user_id)
+          VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(platform_user_id) DO UPDATE SET
+            line_uid = excluded.line_uid,
             system_access = excluded.system_access,
             operator_access = excluded.operator_access,
             granted_by_user_id = excluded.granted_by_user_id,
             updated_at = CURRENT_TIMESTAMP`)
-          .bind(memberId, systemAccess, operatorAccess, admin.userId),
+          .bind(memberId, target.line_uid, systemAccess, operatorAccess, admin.userId),
         env.DB.prepare("INSERT INTO audit_logs (id, actor_user_id, subject_user_id, action, metadata_json) VALUES (?, ?, ?, 'admin.permissions.updated', ?)")
           .bind(newId("audit"), admin.userId, memberId, JSON.stringify({ systemAccess: Boolean(systemAccess), operatorAccess: Boolean(operatorAccess) })),
       ]);

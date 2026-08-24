@@ -2969,7 +2969,7 @@ function profileFormMarkup(required = false) {
     <div id="memberSocialLinks" class="member-social-list">${links.map(socialLinkRow).join("")}</div>
     <p class="member-registration-number">系統會員編號：${esc(state.member.memberNumber || "建立中")}</p>
     <button class="btn" id="save">${required ? "完成註冊" : "儲存會員資料"}</button>
-    ${!required && state.member?.adminAccess?.canAccessAdmin ? `<a class="btn alt" href="/admin">營運管理後台</a>` : ""}
+    ${!required && state.member?.adminAccess?.canAccessAdmin ? `<a class="btn alt" href="/admin">VEO營運統計中心</a>` : ""}
     ${required ? "" : `<button class="btn alt" id="logout">登出</button>`}
   </div>`;
 }
@@ -3061,6 +3061,10 @@ async function showProfileDialog(required = false, { focusId = "" } = {}) {
   setTimeout(() => focusTarget?.focus(), 0);
 }
 async function profile(required = false) {
+  if (required) {
+    $("#app").innerHTML = '<section class="center"><strong>首次登入</strong><p>請先完成會員註冊，完成後才能使用 VEO商務中心。</p></section>';
+    return showProfileDialog(true);
+  }
   if (!document.querySelector(".ak-dashboard")) await home();
   return showProfileDialog(required);
 }

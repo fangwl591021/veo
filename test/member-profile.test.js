@@ -38,6 +38,7 @@ test("member registration opens as an accessible popup while required registrati
   assert.match(app, /async function showProfileDialog\(required = false/);
   assert.match(app, /class="ak-profile-sheet" role="dialog" aria-modal="true"/);
   assert.match(app, /required \? "" : `<button type="button" class="ak-profile-close"/);
+  assert.match(app, /if \(required\) \{[\s\S]*首次登入[\s\S]*return showProfileDialog\(true\)/);
   assert.match(app, /if\(action==="profile"\)return showProfileDialog\(false\)/);
   assert.match(css, /\.ak-profile-dialog\{[^}]*position:fixed[^}]*inset:0/);
   assert.match(css, /\.ak-profile-sheet\{[^}]*max-height:90svh[^}]*overflow:auto/);
