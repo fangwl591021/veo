@@ -129,7 +129,6 @@ import {
   processMemberMatchRankings,
   queueMemberMatchRankingRefresh,
 } from "./member-match-ranking.js";
-import { syncMlmCourses } from "./mlm-course-sync.js";
 import {
   createCalendarLabel,
   deleteCalendarLabel,
@@ -271,54 +270,6 @@ function walletScanResultHtml(result, status = result?.ok ? 200 : 410) {
     },
   });
 }
-function officialTallLiffHtml(env, requestUrl) {
-  const liffId = String(env.OFFICIAL_LIFF_ID || "2007221311-nEOHqNxK");
-  const url = new URL(requestUrl);
-  let page = url.searchParams.get("page") || "";
-  const liffState = url.searchParams.get("liff.state");
-  if (!page && liffState) {
-    try {
-      page = new URL(liffState, url.origin).searchParams.get("page") || "";
-    } catch {
-      page = "";
-    }
-  }
-  const officialPages = {
-    home: "https://www.k-link.com.tw/",
-    about: "https://www.k-link.com.tw/about-us%E8%B5%B0%E9%80%B2%E5%BA%B7%E7%AB%8B",
-    news: "https://www.k-link.com.tw/news-%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF",
-    products: "https://www.k-link.com.tw/products-%E7%94%A2%E5%93%81%E7%B8%BD%E8%A6%BD",
-    video: "https://www.k-link.com.tw/video%E5%BD%B1%E9%9F%B3%E5%B0%88%E5%8D%80",
-  };
-  const target = officialPages[page] || officialPages.home;
-  return new Response(`<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>康立官方網站</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <style>*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#fff}iframe{display:block;width:100%;height:100%;border:0;background:#fff}.loading{position:fixed;inset:0;z-index:1;display:grid;place-items:center;background:#f7f4ed;color:#203329;font:700 16px/1.5 system-ui,"Noto Sans TC",sans-serif;pointer-events:none}.loading::before{content:"";position:absolute;width:38px;height:38px;margin-top:-58px;border:4px solid #dfe9df;border-top-color:#328c45;border-radius:50%;animation:spin .8s linear infinite}.loading.hidden{display:none}@keyframes spin{to{transform:rotate(360deg)}}</style>
-</head>
-<body><div id="loading" class="loading">正在開啟康立官方網站…</div><iframe id="officialSite" title="康立官方網站" allow="fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-<script>
-  const LIFF_ID=${JSON.stringify(liffId)};
-  const TARGET=${JSON.stringify(target)};
-  const frame=document.querySelector("#officialSite");
-  const loading=document.querySelector("#loading");
-  frame.addEventListener("load",()=>loading.classList.add("hidden"));
-  (async()=>{
-    try{
-      await liff.init({liffId:LIFF_ID});
-      frame.src=TARGET;
-    }catch(error){
-      console.error("Official LIFF init failed",error);
-      loading.textContent="LIFF 開啟失敗，請關閉後重新嘗試。";
-    }
-  })();
-</script></body></html>`, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
-}
-
 async function resolveCardAiProvider(env, userId = "") {
   const openaiApiKey = await resolveOpenAIKey(env.DB, env.SESSION_SIGNING_SECRET, env.OPENAI_API_KEY);
   return createAiProviderRouter({
@@ -328,7 +279,6 @@ async function resolveCardAiProvider(env, userId = "") {
     openaiApiKey,
     geminiModel: env.GEMINI_MODEL,
     openaiModel: env.OPENAI_FALLBACK_MODEL,
-    fallbackService: env.MLM_WORKER,
   });
 }
 
@@ -654,7 +604,7 @@ async function officialAkaffitSite() {
       redirect: "follow",
       headers: {
         accept: "text/html,application/xhtml+xml",
-        "user-agent": "AkaffitTeam/1.0 (+https://akaffit-team.fangwl591021.workers.dev/)",
+        "user-agent": "AkaffitTeam/1.0 (+https://veo.fangwl591021.workers.dev/)",
       },
     });
   } catch (error) {
@@ -781,9 +731,6 @@ async function app(request, env, ctx) {
     const adminUrl = new URL("/admin/", url.origin);
     adminUrl.search = url.search;
     return Response.redirect(adminUrl.toString(), 302);
-  }
-  if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/official") {
-    return officialTallLiffHtml(env, url.toString());
   }
   if (request.method === "GET" && url.pathname === "/akaffit-official") {
     return officialAkaffitSite();
@@ -936,7 +883,7 @@ async function app(request, env, ctx) {
       success: true,
       service: "akaffit-team-member-crm",
       version: "20260722-mlm-ai-2",
-      cardAiProvider: env.MLM_WORKER ? "mlm-service" : "local-fallback",
+      cardAiProvider: "local-ai",
     });
   }
 
@@ -947,7 +894,7 @@ async function app(request, env, ctx) {
       cardShareLiffId: env.CARD_SHARE_LIFF_ID || env.LIFF_ID || "",
       checkinLiffId: env.CHECKIN_LIFF_ID || "",
       buildVersion: "20260722-mlm-ai-2",
-      cardAiProvider: env.MLM_WORKER ? "mlm-service" : "local-fallback",
+      cardAiProvider: "local-ai",
       officialAccountUrl: "https://line.me/R/ti/p/@307bxlka",
     });
   }
@@ -1376,10 +1323,7 @@ async function app(request, env, ctx) {
           return buildCalendarVoiceProposal(
             {
               async fetch(requestUrl, init) {
-                if (String(requestUrl).includes("/transcriptions")) {
-                  if (!env.MLM_WORKER?.fetch) throw new Error("AI 語音轉錄服務尚未連線");
-                  return env.MLM_WORKER.fetch(requestUrl, init);
-                }
+                if (String(requestUrl).includes("/transcriptions")) throw new Error("AI 語音轉錄服務尚未啟用");
                 return (await resolveCardAiProvider(env, member.userId)).fetch(requestUrl, init);
               },
             },
@@ -1778,59 +1722,8 @@ async function app(request, env, ctx) {
   if (request.method === "POST" && url.pathname === "/v1/points/mlm-balance") {
     const member = await currentMember(request, env);
     if (!member) return json({ success: false, error: "Unauthorized" }, 401);
-    const body = (await readJson(request)) || {};
-    const idToken = String(body.idToken || "").trim();
-    const accessToken = String(body.accessToken || "").trim();
-    if (!idToken && !accessToken) return badRequest("LINE credential is required");
-    try {
-      const endpoint = String(env.MLM_MEMBER_POINTS_URL || "https://mlm.fangwl591021.workers.dev/api/ai-wear/member-points");
-      const requestOptions = {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({
-          idToken,
-          accessToken,
-          displayName: member.displayName || "",
-          pictureUrl: member.pictureUrl || "",
-          aiWearPointChannelKey: "oa1",
-        }),
-      };
-      // Cloudflare may return 404 when one workers.dev Worker fetches another
-      // Worker in the same account. A Service Binding is the supported internal
-      // transport and also avoids a public network round trip.
-      const response = env.MLM_WORKER && typeof env.MLM_WORKER.fetch === "function"
-        ? await env.MLM_WORKER.fetch("https://mlm.internal/api/ai-wear/member-points", requestOptions)
-        : await fetch(endpoint, requestOptions);
-      const responseText = await response.text();
-      let payload = {};
-      try { payload = responseText ? JSON.parse(responseText) : {}; } catch { payload = {}; }
-      const balance = Number(payload.data?.balance);
-      if (!response.ok || payload.status !== "success" || !Number.isFinite(balance)) {
-        const contentType = response.headers.get("content-type") || "unknown";
-        const upstreamMessage = String(payload.message || payload.error || "").trim();
-        const responseKind = responseText && !Object.keys(payload).length ? "non-json" : "json";
-        const diagnostic = `MLM HTTP ${response.status} / ${responseKind} / ${contentType}`;
-        console.error("MLM point upstream response invalid", {
-          status: response.status,
-          contentType,
-          responseKind,
-          payloadStatus: payload.status || "",
-          hasData: Boolean(payload.data),
-          dataKeys: payload.data && typeof payload.data === "object" ? Object.keys(payload.data) : [],
-        });
-        return json({ success: false, error: upstreamMessage ? `${upstreamMessage}（${diagnostic}）` : `康立智能 K點讀取失敗（${diagnostic}）` }, response.status === 401 ? 401 : 502);
-      }
-      return json({
-        success: true,
-        balance,
-        entries: Array.isArray(payload.data?.items) ? payload.data.items : [],
-        ledgerSource: payload.data?.ledgerSource || "mlm-mother-site",
-        pointChannelKey: payload.data?.pointChannelKey || "oa1",
-      });
-    } catch (error) {
-      console.error("MLM point proxy failed", error);
-      return json({ success: false, error: "康立智能 K點服務暫時無法連線" }, 502);
-    }
+    const wallet = await getWallet(env.DB, member.userId);
+    return json({ success: true, balance: Number(wallet.balance) || 0, entries: wallet.entries || [], ledgerSource: "local" });
   }
 
   if (request.method === "POST" && url.pathname === "/v1/points/wallet/qr") {
@@ -2693,11 +2586,6 @@ async function app(request, env, ctx) {
   }
 
   if (request.method === "GET" && url.pathname === "/v1/courses") {
-    try {
-      await syncMlmCourses(env);
-    } catch (error) {
-      console.error("MLM course sync before listing failed", error);
-    }
     return json({
       success: true,
       sessions: await listPublicCourseSessions(env.DB),
@@ -2898,15 +2786,6 @@ async function runDueTaskPushes(env) {
     console.log("Task Engine due notifications completed", { taskCount:result.length });
   } catch (error) { console.error("Scheduled Task Engine push failed", error); }
 }
-async function runMlmCourseSync(env) {
-  try {
-    const result = await syncMlmCourses(env);
-    console.log("MLM course sync completed", result);
-  } catch (error) {
-    console.error("Scheduled MLM course sync failed", error);
-  }
-}
-
 export default {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS")
@@ -2921,7 +2800,6 @@ export default {
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(runSystemCrmInsightBackfill(env));
     ctx.waitUntil(runSystemAiCardCrmBackfill(env));
-    ctx.waitUntil(runMlmCourseSync(env));
     ctx.waitUntil(retryPendingCardCollectionRewards(env));
     ctx.waitUntil(runDueTaskPushes(env));
   },

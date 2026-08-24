@@ -14,7 +14,7 @@ test("mobile invite sharing uses the dedicated share LIFF", async () => {
   assert.match(worker, /stateUrl\.pathname === "\/r\/invite-share"[\s\S]*inviteToken/);
 
   const response = inviteShareLiffHtml({
-    liffId: "2010925044-hPtKkoKO",
+    liffId: "2010657278-blC5Mnqg",
     origin: "https://akaffit-team.example",
     inviteToken: "60d44b9563b4dc49f2cab2925e3c69b01bb57d9e1ca2e2d6",
   });

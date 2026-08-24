@@ -205,8 +205,6 @@ if (cardShareModeFromLocation()) sessionStorage.setItem("klinkweb_card_share_mod
 const pointEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"每日簽到", course_registered:"課程報名", attendance_verified:"課程簽到", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"完成任務", card_collection_reward:"掃描名片", card_collection_reward_reversal:"刪除名片扣回" };
 const FIXED_CARD_IMAGE_LINK = "https://lin.ee/ngaHmLM";
 const DEFAULT_CARD_CHAT_ALT_TEXT = "健康新世代、從康立開始";
-const AI_WEAR_LIFF_URL = "https://liff.line.me/2007221311-snSAlddv?aiWearTry=1";
-const MLM_AI_WEAR_MEMBER_SETTINGS_URL = "https://mlm.fangwl591021.workers.dev/api/ai-wear/member-settings";
 const cardChatAltText = (card) => String(card?.chatAltText || DEFAULT_CARD_CHAT_ALT_TEXT).trim().slice(0, 300) || DEFAULT_CARD_CHAT_ALT_TEXT;
 class ApiError extends Error {
   constructor(message, status = 0) {
@@ -475,9 +473,7 @@ const portalIcon = (name) => ({
   cardCollection: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.7-1.7 1.8-2.6 3.2-2.6s2.5.9 3.2 2.6M14.2 9.5h3.4M14.2 12.5h3.4"/></svg>`,
   smartMatch: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M3.5 18c.6-3 2.1-4.6 4.5-4.6 1.7 0 3 .8 3.8 2.3.9-1.5 2.3-2.3 4.2-2.3 2.4 0 3.9 1.6 4.5 4.6"/><path d="m12 3 .5 1.2 1.3.1-1 .8.3 1.3-1.1-.7-1.1.7.3-1.3-1-.8 1.3-.1z"/></svg>`,
   courses: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2c1.3 2.3 3 3.3 5.2 3.6-1.6 1.6-2.2 3.3-1.8 5.5-2.1-.6-3.5-.1-5.4 1.4.1-2.4-.8-4-2.8-5.4 2.3-.6 3.8-2 4.8-5.2Z"/><path d="M18.8 14.5c.5.9 1.2 1.3 2.1 1.5-.7.6-.9 1.3-.7 2.2-.8-.3-1.4 0-2.2.5.1-.9-.3-1.6-1.1-2.1.9-.2 1.5-.8 1.9-1.9Z"/></svg>`,
-  daily: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="4.6"/><path d="m9.1 12.6-1.4 7 4.3-2 4.3 2-1.4-7"/><path d="m12 6.5.75 1.7 1.85.15-1.4 1.22.42 1.8L12 10.4l-1.62 1.02.42-1.8-1.4-1.22 1.85-.15Z"/></svg>`,
-  aiWear: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.2h3.1l1.1 4.1h3.2l1.1-4.1 1.1 4.1h3.2l1.1-4.1h3.1"/><path d="M6.6 10.2c.5-1.1 1.4-1.7 2.6-1.7s2.1.6 2.8 1.7c.7-1.1 1.6-1.7 2.8-1.7s2.1.6 2.6 1.7"/><path d="m18.5 3.5.5 1.4 1.5.1-1.2.9.4 1.5-1.2-.9-1.3.9.5-1.5-1.2-.9 1.5-.1z"/></svg>`,
-  profile: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.3" y="4.3" width="15.4" height="15.4" rx="3.2"/><circle cx="12" cy="12" r="3.2"/><path d="M8 7.1h.01M16 7.1h.01"/></svg>`,
+  daily: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="4.6"/><path d="m9.1 12.6-1.4 7 4.3-2 4.3 2-1.4-7"/><path d="m12 6.5.75 1.7 1.85.15-1.4 1.22.42 1.8L12 10.4l-1.62 1.02.42-1.8-1.4-1.22 1.85-.15Z"/></svg>`,  profile: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.3" y="4.3" width="15.4" height="15.4" rx="3.2"/><circle cx="12" cy="12" r="3.2"/><path d="M8 7.1h.01M16 7.1h.01"/></svg>`,
   home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.5 11 7.5-6.2 7.5 6.2v8.3H4.5z"/><path d="M9 19.3v-4.4h6v4.4M12 7.2v3.1M10.45 8.75h3.1"/></svg>`,
   calendar: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/><path d="M7 14h2M11 14h2M15 14h2M7 18h2M11 18h2"/></svg>`,
   zodiac: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.8 1.1 3.2 3.3.1-2.6 2 1 3.2-2.8-1.9-2.8 1.9 1-3.2-2.6-2 3.3-.1z"/><path d="M18.4 14.4a3.8 3.8 0 1 1-4.8 4.8 4.6 4.6 0 0 0 4.8-4.8Z"/></svg>`
@@ -1044,7 +1040,6 @@ async function taskCenter(){
   }catch(error){layout(`<section class="card task-engine-loading"><h2>任務中心讀取失敗</h2><p class="muted">${esc(error.message||"暫時無法讀取任務")}</p><button class="btn" id="retryTasks">重新載入</button></section>`);$("#retryTasks").onclick=taskCenter}
 }
 const portalMenu = () => `<section class="portal-menu portal-menu-compact portal-menu-text" aria-label="會員功能"><button data-home-action="cardCollection"><span>名片收藏</span></button><button data-home-action="card"><span>電子名片</span></button><button data-home-action="daily"><span>每日簽到</span></button><button data-home-action="smartMatch"><span>智能配對</span></button><button data-home-action="calendar"><span>個人行程</span></button></section>`;
-function openAiWear(){try{if(window.liff?.isInClient?.()){window.liff.openWindow({url:AI_WEAR_LIFF_URL,external:false});return}}catch{/* Fall back to direct LIFF navigation. */}window.location.href=AI_WEAR_LIFF_URL}
 function openOfficialSite(page="home"){
   document.querySelector("#officialSiteOverlay")?.remove();
   const target=OFFICIAL_PAGES[page]||OFFICIAL_PAGES.home;
@@ -1073,48 +1068,10 @@ async function openBlogPost(slug){
   }catch(error){alert(error.message||"文章載入失敗")}
 }
 function bindBlogCards(){document.querySelectorAll("[data-blog-slug]").forEach((button)=>button.onclick=()=>openBlogPost(button.dataset.blogSlug))}
-function bindPortalActions(){document.querySelectorAll("[data-home-action]").forEach((button)=>(button.onclick=async()=>{const action=button.dataset.homeAction;if(action==="share")return showShareQr();if(action==="zodiacPopup")return showZodiacDialog();if(action==="profile")return showProfileDialog(false);if(action==="aiWear")return openAiWear();if(action==="walletqr"){const panel=$("#walletPanel");if(!panel){state.tab="wallet";return render()}$(".site-home-frame")?.classList.add("hidden");panel.classList.remove("hidden");panel.scrollIntoView({behavior:"smooth",block:"start"});return showWalletQr("homeWalletQr","homeWalletExpire")}state.tab=action==="home"?"home":action==="daily"?"daily":action==="courses"?"courses":action==="card"?"card":action==="zodiac"?"zodiac":action==="cardCollection"?"cardCollection":action==="smartMatch"?"smartMatch":action==="calendar"?"calendar":action==="tasks"?"tasks":"wallet";await render()}));bindOfficialSiteLinks();bindBlogCards();$("#copyInvite")?.addEventListener("click",copyInvite);document.querySelectorAll("[data-close-share]").forEach((node)=>node.addEventListener("click",closeShareQr))}
+function bindPortalActions(){document.querySelectorAll("[data-home-action]").forEach((button)=>(button.onclick=async()=>{const action=button.dataset.homeAction;if(action==="share")return showShareQr();if(action==="zodiacPopup")return showZodiacDialog();if(action==="profile")return showProfileDialog(false);if(action==="walletqr"){const panel=$("#walletPanel");if(!panel){state.tab="wallet";return render()}$(".site-home-frame")?.classList.add("hidden");panel.classList.remove("hidden");panel.scrollIntoView({behavior:"smooth",block:"start"});return showWalletQr("homeWalletQr","homeWalletExpire")}state.tab=action==="home"?"home":action==="daily"?"daily":action==="courses"?"courses":action==="card"?"card":action==="zodiac"?"zodiac":action==="cardCollection"?"cardCollection":action==="smartMatch"?"smartMatch":action==="calendar"?"calendar":action==="tasks"?"tasks":"wallet";await render()}));bindOfficialSiteLinks();bindBlogCards();$("#copyInvite")?.addEventListener("click",copyInvite);document.querySelectorAll("[data-close-share]").forEach((node)=>node.addEventListener("click",closeShareQr))}
 async function mlmMemberPointBalance(fallbackBalance=0){
-  try{
-    mlmPointSyncError="";
-    await initLiffOnce();
-    if(!liff.isLoggedIn()){
-      // klinkweb 的登入工作階段比 LINE ID Token 長。PC 瀏覽器再次開啟時
-      // 可能仍可進會員中心，卻沒有可供 MLM 核對的 LIFF 身分，因而曾
-      // 錯誤顯示本機點數。補做一次 LINE Login 後，PC/手機都以同一個
-      // LINE UID 查詢康立智能 K 點。
-      markLiffLoginPending();
-      liff.login({redirectUri:liffLoginRedirectUrl()});
-      return null;
-    }
-    const idToken=liff.getIDToken();
-    const accessToken=liff.getAccessToken()||"";
-    if(!idToken&&!accessToken){
-      // PC 外部瀏覽器有時保留 LINE Login 狀態，卻已失去 ID Token。
-      // isLoggedIn() 仍會回 true，所以必須主動登出再授權，不能退回
-      // klinkweb 的本機餘額，否則就會和手機顯示不同。
-      if(sessionStorage.getItem("klinkweb_point_reauth_attempted")!=="1"){
-        sessionStorage.setItem("klinkweb_point_reauth_attempted","1");
-        markLiffLoginPending();
-        try{liff.logout();}catch{}
-        liff.login({redirectUri:liffLoginRedirectUrl()});
-        return null;
-      }
-      throw new Error("LINE 登入未提供 ID Token，無法核對康立智能 K點");
-    }
-    const payload=await api("/v1/points/mlm-balance",{method:"POST",body:JSON.stringify({idToken:idToken||"",accessToken})});
-    if(!Number.isFinite(Number(payload.balance)))throw new Error("康立智能 K點讀取失敗");
-    sessionStorage.removeItem("klinkweb_point_reauth_attempted");
-    return {
-      balance:Number(payload.balance),
-      entries:Array.isArray(payload.entries)?payload.entries:[],
-      ledgerSource:payload.ledgerSource||"mlm-mother-site",
-    };
-  }catch(error){
-    console.warn("MLM member point sync failed",error);
-    mlmPointSyncError=error?.message||"康立智能 K點同步失敗";
-    return null;
-  }
+  mlmPointSyncError="";
+  return { balance:Number(fallbackBalance)||0, entries:[], ledgerSource:"local" };
 }
 let youtubePlayerClose = null;
 function closeYoutubePlayer() {
@@ -2939,19 +2896,6 @@ async function publicCard() {
   } catch (error) {
     $("#app").innerHTML = `<section class="center">${esc(error.message || "找不到這張名片")}</section>`;
   }
-}
-async function syncAiWearMemberLineUrl(lineUrl) {
-  await initLiffOnce();
-  const idToken = liff.isLoggedIn() ? liff.getIDToken() : "";
-  if (!idToken) throw new Error("LINE 登入已逾時，無法同步試戴聯絡網址");
-  const response = await fetch(MLM_AI_WEAR_MEMBER_SETTINGS_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ idToken, purchaseLineUrl: String(lineUrl || "").trim() }),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload.status !== "success") throw new Error(payload.message || "試戴聯絡網址同步失敗");
-  return payload.data;
 }
 function birthdayPassword(value="") {
   const digits = String(value || "").replace(/\D/g, "");

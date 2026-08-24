@@ -1,8 +1,8 @@
 # Android LIFF 拍照入口驗收
 
-主會員 LIFF URL：`https://liff.line.me/2010925044-KXzQzB5r`
+主會員 LIFF URL：`https://liff.line.me/2010657278-VqB7uA2y`
 
-Worker Endpoint URL：`https://akaffit-team.fangwl591021.workers.dev/`
+Worker Endpoint URL：`https://veo.fangwl591021.workers.dev/`
 
 ## 程式內已完成
 
@@ -22,9 +22,9 @@ Worker Endpoint URL：`https://akaffit-team.fangwl591021.workers.dev/`
 
 在 LINE Developers Console 確認主 LIFF App：
 
-- LIFF ID：`2010925044-KXzQzB5r`
+- LIFF ID：`2010657278-VqB7uA2y`
 - Size：Full
-- Endpoint URL：`https://akaffit-team.fangwl591021.workers.dev/`
+- Endpoint URL：`https://veo.fangwl591021.workers.dev/`
 
 將下列所有「會員中心／拍照掃描」入口改為主 LIFF URL，不可使用 Worker Endpoint URL：
 
@@ -44,7 +44,7 @@ Worker Endpoint URL：`https://akaffit-team.fangwl591021.workers.dev/`
 
 ## Android 實機
 
-1. 將 `https://liff.line.me/2010925044-KXzQzB5r?camera_probe=20260813` 貼到 LINE 聊天室。
+1. 將 `https://liff.line.me/2010657278-VqB7uA2y?camera_probe=20260813` 貼到 LINE 聊天室。
 2. 從聊天室點開，確認無 LINE 內建瀏覽器底部工具列。
 3. 確認 `liff.isInClient() === true`。
 4. 名片收藏與電子名片各測一次：拍照開相機、相簿開相簿、裁切與 OCR 正常。

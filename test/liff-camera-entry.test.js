@@ -46,7 +46,7 @@ test("scan surfaces diagnose the real LIFF client and offer the project LIFF URL
 });
 
 test("member entry URLs prefer this project's LIFF and preserve legacy invite paths", async () => {
-  assert.match(wrangler, /"LIFF_ID": "2010925044-KXzQzB5r"/);
+  assert.match(wrangler, /"LIFF_ID": "2010657278-VqB7uA2y"/);
   assert.match(workerSource, /const shareUrl = env\.LIFF_ID[\s\S]*https:\/\/liff\.line\.me\/[\s\S]*\?invite=/);
   assert.match(taskSource, /const liffId = text\(env\.LIFF_ID, 200\)[\s\S]*https:\/\/liff\.line\.me/);
 

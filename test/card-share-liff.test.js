@@ -9,8 +9,8 @@ const worker = readFileSync(new URL("../src/index.js", import.meta.url), "utf8")
 const wrangler = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 
 test("personal cards use the dedicated LIFF share app without replacing member login", () => {
-  assert.match(wrangler, /"LIFF_ID": "2010925044-KXzQzB5r"/);
-  assert.match(wrangler, /"CARD_SHARE_LIFF_ID": "2010925044-hPtKkoKO"/);
+  assert.match(wrangler, /"LIFF_ID": "2010657278-VqB7uA2y"/);
+  assert.match(wrangler, /"CARD_SHARE_LIFF_ID": "2010657278-blC5Mnqg"/);
   assert.match(worker, /cardShareLiffId: env\.CARD_SHARE_LIFF_ID \|\| env\.LIFF_ID \|\| ""/);
   assert.match(app, /state\.cardShareMode[\s\S]*state\.config\?\.cardShareLiffId \|\| state\.config\?\.liffId/);
   assert.match(app, /function cardSharePickerUrl\(cardId, card = null\)[\s\S]*state\.config\?\.cardShareLiffId \|\| state\.config\?\.liffId/);
@@ -29,7 +29,7 @@ test("personal cards use the dedicated LIFF share app without replacing member l
 
 test("compact card share LIFF opens the picker without member-session dependency", async () => {
   const response = personalCardShareLiffHtml({
-    liffId: "2010925044-hPtKkoKO",
+    liffId: "2010657278-blC5Mnqg",
     origin: "https://akaffit-team.example",
     cardId: "card_demo",
   });

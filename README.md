@@ -16,21 +16,21 @@
 ## A-KAFFIT 環境
 
 - Worker：`akaffit-team`
-- 正式網址：`https://akaffit-team.fangwl591021.workers.dev/`
-- 會員中心 LIFF ID：`2010925044-KXzQzB5r`
-- 名片分享 LIFF ID：`2010925044-hPtKkoKO`
-- LINE Login Channel ID：`2007221311`
-- D1：`akaffit_team_crm`（建立後需將 ID 寫入 `wrangler.jsonc`）
-- R2：`akaffit-team-media`
+- 正式網址：`https://veo.fangwl591021.workers.dev/`
+- 會員中心 LIFF ID：`2010657278-VqB7uA2y`
+- 名片分享 LIFF ID：`2010657278-blC5Mnqg`
+- LINE Login Channel ID：`2010657278`
+- D1：`veo_crm`（建立後需將 ID 寫入 `wrangler.jsonc`）
+- R2：`veo-media`
 
 ## 初始化與部署
 
 ```bash
 npm ci
-npx wrangler d1 create akaffit_team_crm
-npx wrangler r2 bucket create akaffit-team-media
+npx wrangler d1 create veo_crm
+npx wrangler r2 bucket create veo-media
 # 將 D1 database_id 填入 wrangler.jsonc
-npx wrangler d1 migrations apply akaffit_team_crm --remote
+npx wrangler d1 migrations apply veo_crm --remote
 npm test
 npm run check
 npx wrangler deploy

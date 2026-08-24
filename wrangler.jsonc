@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "akaffit-team",
+  "name": "veo",
   "main": "src/index.js",
   "compatibility_date": "2026-07-17",
   "assets": {
@@ -9,32 +9,31 @@
     "run_worker_first": ["/", "/api/*", "/v1/*", "/i/*", "/w/*", "/c/*", "/r/*", "/akaffit-official", "/akaffit-official-runtime", "/akaffit-official-slick.js", "/akaffit-official-slick.css", "/akaffit-official-slick-theme.css", "/akaffit-official-font/*", "/admin", "/admin/*", "/admin.html", "/assets/checkin-template/*"]
   },
   "vars": {
-    "LIFF_ID": "2010925044-KXzQzB5r",
-    "CARD_SHARE_LIFF_ID": "2010925044-hPtKkoKO",
-    "CHECKIN_LIFF_ID": "2010925044-KXzQzB5r",
-    "LINE_LOGIN_CHANNEL_ID": "2007221311",
+    "LIFF_ID": "2010657278-VqB7uA2y",
+    "CARD_SHARE_LIFF_ID": "2010657278-blC5Mnqg",
+    "CHECKIN_LIFF_ID": "2010657278-VqB7uA2y",
+    "LINE_LOGIN_CHANNEL_ID": "2010657278",
     "GEMINI_MODEL": "gemini-3.5-flash-lite",
-    "OPENAI_FALLBACK_MODEL": "gpt-5-mini"
+    "OPENAI_FALLBACK_MODEL": "gpt-5-mini",
+    "PUBLIC_APP_URL": "https://veo.fangwl591021.workers.dev/"
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "akaffit_team_crm",
-      "database_id": "62f1b387-b6b7-40a3-9c57-97c5c056428a",
+      "database_name": "veo_crm",
+      "database_id": "56e092af-1669-48c6-bbfd-06f266237acb",
       "migrations_dir": "migrations"
     }
   ],
-  "triggers": { "crons": ["*/10 * * * *"] },
-  "services": [
-    {
-      "binding": "MLM_WORKER",
-      "service": "mlm"
-    }
-  ],
+  "triggers": {
+    "crons": [
+      "*/10 * * * *"
+    ]
+  },
   "r2_buckets": [
     {
       "binding": "MEDIA",
-      "bucket_name": "akaffit-team-media"
+      "bucket_name": "veo-media"
     }
   ]
 }

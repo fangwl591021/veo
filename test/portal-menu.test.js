@@ -8,7 +8,7 @@ const productionIndex = readFileSync(new URL("../public/index-20260815-128.txt",
 
 test("內頁功能列移除星座、AI 任務與返回首頁，返回首頁固定在 Banner", () => {
   const start = app.indexOf("const portalMenu");
-  const end = app.indexOf("function openAiWear", start);
+  const end = app.indexOf("function openOfficialSite", start);
   const menu = app.slice(start, end);
   const actions = [...menu.matchAll(/data-home-action="([^"]+)"/g)].map((match) => match[1]);
 
