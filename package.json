@@ -1,0 +1,16 @@
+{
+  "name": "veo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "node --test test/worker.test.js",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "4.125.0"
+  }
+}
