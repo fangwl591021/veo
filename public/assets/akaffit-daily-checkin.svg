@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">A-KAFFIT TEAM 每日簽到</title>
+  <desc id="desc">深綠與金色品牌風格的每日簽到卡片</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00513a"/>
+      <stop offset="1" stop-color="#002d23"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".8" cy=".1" r=".75">
+      <stop offset="0" stop-color="#1b9369" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#1b9369" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="1200" rx="56" fill="url(#bg)"/>
+  <rect width="800" height="1200" rx="56" fill="url(#glow)"/>
+  <g fill="none" stroke="#e9c55b" opacity=".2">
+    <ellipse cx="610" cy="245" rx="300" ry="105"/>
+    <ellipse cx="610" cy="245" rx="245" ry="82"/>
+    <ellipse cx="610" cy="245" rx="185" ry="58"/>
+    <ellipse cx="610" cy="245" rx="125" ry="37"/>
+  </g>
+  <circle cx="112" cy="112" r="54" fill="none" stroke="#e9c55b" stroke-width="3"/>
+  <text x="112" y="137" fill="#e9c55b" font-family="Georgia,serif" font-size="72" text-anchor="middle">A</text>
+  <text x="72" y="380" fill="#ffffff" font-family="Arial,'Noto Sans TC',sans-serif" font-size="66" font-weight="700">每日簽到</text>
+  <text x="75" y="448" fill="#d2e9df" font-family="Arial,'Noto Sans TC',sans-serif" font-size="30">每天完成一件小事，累積長期商脈。</text>
+  <g transform="translate(75 560)">
+    <rect width="650" height="260" rx="32" fill="#fff" opacity=".96"/>
+    <circle cx="105" cy="130" r="70" fill="#eff5ec"/>
+    <path d="M72 132l24 25 48-58" fill="none" stroke="#087b53" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="205" y="112" fill="#073e2d" font-family="Arial,'Noto Sans TC',sans-serif" font-size="38" font-weight="700">觀看今日內容</text>
+    <text x="205" y="166" fill="#60736a" font-family="Arial,'Noto Sans TC',sans-serif" font-size="25">完成後按下簽到，即可獲得點數</text>
+  </g>
+  <line x1="75" y1="955" x2="725" y2="955" stroke="#e9c55b" stroke-width="2" opacity=".45"/>
+  <text x="75" y="1030" fill="#e9c55b" font-family="Arial,sans-serif" font-size="26" font-weight="700" letter-spacing="5">A-KAFFIT TEAM</text>
+  <text x="75" y="1080" fill="#d2e9df" font-family="Arial,'Noto Sans TC',sans-serif" font-size="24">CONNECT · SHARE · GROW</text>
+</svg>

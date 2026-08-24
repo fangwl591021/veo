@@ -1,0 +1,43 @@
+name: App Notification UI
+
+on:
+  push:
+    branches:
+      - agent/app-notification-ui
+    paths:
+      - scripts/apply-app-notification-ui.mjs
+      - .github/workflows/app-notification-ui.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/app-notification-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply notification migration
+        run: node scripts/apply-app-notification-ui.mjs
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Check
+        run: npm run check
+      - name: Commit migrated app
+        run: |
+          if git diff --quiet; then
+            echo "No migration changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/app-20260815-132.js
+          git commit -m "feat: replace native confirm and prompt dialogs"
+          git push origin HEAD:agent/app-notification-ui

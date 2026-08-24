@@ -1,0 +1,71 @@
+name: Apply Card Vision Localization V3
+
+on:
+  push:
+    branches:
+      - agent/card-scanner-v2
+    paths:
+      - scripts/apply-card-vision-v3-stability.mjs
+      - scripts/apply-card-duplicate-retry.mjs
+      - test/card-vision-v3-stability.test.js
+      - test/card-duplicate-retry.test.js
+      - .github/workflows/apply-card-vision-localization-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/card-scanner-v2
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply patches
+        run: |
+          node scripts/apply-card-vision-v3-stability.mjs
+          node scripts/apply-card-duplicate-retry.mjs
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        id: test
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test-v3.log
+      - name: Check
+        id: check
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run check 2>&1 | tee check-v3.log
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-vision-v3-diagnostics
+          path: |
+            test-v3.log
+            check-v3.log
+          if-no-files-found: warn
+      - name: Fail if validation failed
+        if: steps.test.outcome != 'success' || steps.check.outcome != 'success'
+        run: exit 1
+      - name: Commit changes
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/app-20260815-132.js src/card-collection.js src/index.js \
+            test/card-vision-v3-stability.test.js test/card-duplicate-retry.test.js
+          git commit -m "fix: allow duplicate card rescans without duplicate points"
+          git push origin HEAD:agent/card-scanner-v2

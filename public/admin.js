@@ -1,0 +1,844 @@
+const token = localStorage.getItem("klinkweb_session") || "";
+let adminAccess = null;
+const $ = (selector) => document.querySelector(selector);
+const api = async (path, body, method = body ? "POST" : "GET") => {
+  const response = await fetch(path, {
+    method,
+    headers: {
+      ...(body ? { "content-type": "application/json" } : {}),
+      authorization: `Bearer ${token}`,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json.error || "操作失敗");
+  return json;
+};
+const showStatus = (message, type = "ok") => {
+  const box = $("#status");
+  box.textContent = message;
+  box.className = `status ${type}`;
+  setTimeout(() => (box.className = "status hidden"), 5000);
+};
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function withButtonFeedback(button, task, { busy = "處理中…", success = "已完成" } = {}) {
+  if (!button) return task();
+  if (button.dataset.busy === "1") return;
+  const original = button.textContent;
+  button.dataset.busy = "1";
+  button.disabled = true;
+  button.textContent = busy;
+  try {
+    const result = await task();
+    if (button.isConnected) {
+      button.textContent = success;
+      await wait(650);
+    }
+    return result;
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.textContent = original;
+      delete button.dataset.busy;
+    }
+  }
+}
+const format = (value) =>
+  new Intl.NumberFormat("zh-TW").format(Number(value) || 0);
+async function loadAdminIdentity() {
+  try {
+    const { member } = await api("/v1/me");
+    $("#adminName").textContent = member.displayName || "LINE 管理員";
+    const avatar = $("#adminAvatar");
+    if (member.pictureUrl) {
+      avatar.src = member.pictureUrl;
+      avatar.onerror = () => { avatar.style.display = "none"; };
+    } else avatar.style.display = "none";
+    $("#adminIdentity").hidden = false;
+  } catch { /* overview will show the existing authorization error */ }
+}
+async function overview() {
+  try {
+    const data = await api("/v1/admin/overview");
+    adminAccess = data.access || null;
+    const pointNav = document.querySelector('[data-page="points"]');
+    if (pointNav) pointNav.hidden = !adminAccess?.canManagePoints;
+    const richMenuNav = document.querySelector('[data-page="richmenu"]');
+    if (richMenuNav) richMenuNav.hidden = !adminAccess?.canManageRichMenu;
+    const aiProviderPanel = $("#aiProviderPanel");
+    if (aiProviderPanel) aiProviderPanel.hidden = !adminAccess?.systemAccess;
+    const openAISettings = $("#openAISettingsPanel");
+    if (openAISettings) openAISettings.hidden = !adminAccess?.systemAccess;
+    const x = data.overview;
+    $("#metricMembers").textContent = format(x.members);
+    $("#memberTotal").textContent = format(x.members);
+    $("#metricPoints").textContent = format(x.issuedPoints);
+    $("#metricCourses").textContent = format(x.publishedCourses);
+    $("#metricCheckins").textContent = format(x.verifiedCheckins);
+    return true;
+  } catch (error) {
+    showStatus(`無管理權限：${error.message}`, "error");
+    return false;
+  }
+}
+function switchPage(page) {
+  document.body.classList.toggle("template-page", page === "carousel");
+  document
+    .querySelectorAll("[data-content]")
+    .forEach((node) =>
+      node.classList.toggle("active", node.dataset.content === page),
+    );
+  document
+    .querySelectorAll("[data-page]")
+    .forEach((node) =>
+      node.classList.toggle("active", node.dataset.page === (page === "calendar" ? "courses" : page)),
+    );
+  const names = {
+    dashboard: ["營運統計中心", "A-KAFFIT 會員、點數、簽到與內容即時概況"],
+    members: ["會員 CRM", "LINE Login 會員與推薦關係"],
+    cards: ["全站名片庫", "會員數位名片與客戶收藏名片"],
+    points: ["商脈點數規則", "管理會員服務扣點與各類成功贈點"],
+    courses: ["課程／活動", "活動清單、公開設定與場次管理"],
+    calendar: ["課程／活動", "行事曆、活動 QR、報名與簽到"],
+    carousel: ["簽到內容管理", "新增圖片或影片，設定觀看門檻與贈點內容"],
+    richmenu: ["圖文選單管理", "上傳底圖、框選熱區並部署至 LINE"],
+    settings: ["系統設定", "登入、點數錢包與導流設定"],
+  };
+  $("#pageTitle").textContent = names[page][0];
+  $("#pageHint").textContent = names[page][1];
+  if (page === "members") loadMembers();
+  if (page === "cards") loadAdminCards();
+  if (page === "carousel") loadCheckinTemplate();
+  if (page === "points") loadPointRules();
+  if (page === "courses") loadCourses();
+  if (page === "calendar") loadCalendar();
+  if (page === "richmenu") loadRichMenuToken();
+  if (page === "settings" && adminAccess?.systemAccess) { loadOpenAISettings(); loadAIProviderUsage(); }
+}
+
+function renderAIProviderStatus(data) {
+  const gemini=$("#geminiKeyStatus"),openai=$("#aiOpenAIStatus");
+  if(gemini){gemini.textContent=data?.gemini?.configured?("已設定 · "+(data.gemini.model||"")):"尚未設定 GEMINI_API_KEY";gemini.classList.toggle("configured",Boolean(data?.gemini?.configured));}
+  if(openai){openai.textContent=data?.openai?.configured?("已設定 · "+(data.openai.source==="database"?"後台加密":"Worker Secret")):"尚未設定";openai.classList.toggle("configured",Boolean(data?.openai?.configured));}
+}
+function renderAIUsage(data) {
+  const summary=data?.summary||{},providers=Object.fromEntries((data?.byProvider||[]).map((row)=>[row.provider,row]));
+  $("#aiLogicalRequests").textContent=format(summary.logical_requests||0);
+  $("#aiGeminiTokens").textContent=format(providers.gemini?.total_tokens||0);
+  $("#aiOpenAITokens").textContent=format(providers.openai?.total_tokens||0);
+  $("#aiFallbackAttempts").textContent=format(summary.fallback_attempts||0);
+  $("#aiAverageLatency").textContent=format(summary.average_latency_ms||0)+" ms";
+  const rows=$("#aiUsageRows"); if(!rows)return;
+  rows.innerHTML=(data?.events||[]).length?(data.events||[]).map((row)=>"<tr><td>"+esc(String(row.created_at||"").replace("T"," ").slice(0,19))+"</td><td>"+esc(row.feature)+"</td><td><b>"+esc(row.provider)+"</b>"+(row.is_fallback?"<small>備援</small>":"")+"</td><td>"+esc(row.model)+"</td><td><span class=\"ai-usage-state "+esc(row.status)+"\">"+esc(row.status)+"</span></td><td>"+format(row.total_tokens||0)+"</td><td>"+format(row.latency_ms||0)+" ms</td></tr>").join(""):'<tr><td colspan="7">尚無 AI 用量紀錄</td></tr>';
+}
+async function loadAIProviderUsage(){try{const [providers,usage]=await Promise.all([api("/v1/admin/ai-providers"),api("/v1/admin/ai-usage?limit=50")]);renderAIProviderStatus(providers);renderAIUsage(usage)}catch(error){showStatus(error.message,"error")}}
+async function testGeminiSetting(button){try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/ai-providers/gemini/test",{});showStatus("Gemini 連線正常 · "+result.model);await loadAIProviderUsage()},{busy:"測試中…",success:"連線正常"})}catch(error){showStatus(error.message,"error")}}
+function renderOpenAIStatus(data) {
+  const status=$("#openAIKeyStatus"); if(!status)return;
+  const source=data?.source==="database"?"後台加密儲存":data?.source==="environment"?"Worker 環境密鑰":"尚未設定";
+  status.textContent=data?.configured?`${source}${data.masked?` · ${data.masked}`:""}`:source;
+  status.classList.toggle("configured",Boolean(data?.configured));
+  const remove=$("#deleteOpenAIKey"); if(remove)remove.disabled=data?.source!=="database";
+}
+async function loadOpenAISettings(){try{renderOpenAIStatus(await api("/v1/admin/openai-settings"))}catch(error){showStatus(error.message,"error")}}
+async function saveOpenAISetting(button){const input=$("#openAIKey"),apiKey=String(input?.value||"").trim();if(!apiKey)return showStatus("請貼上 OpenAI API Key","error");try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/openai-settings",{apiKey},"PUT");input.value="";renderOpenAIStatus(result);showStatus("OpenAI API Key 已驗證並加密儲存")},{busy:"驗證儲存中…",success:"已儲存"})}catch(error){showStatus(error.message,"error")}}
+async function testOpenAISetting(button){try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/openai-settings/test",{});renderOpenAIStatus(result);showStatus("OpenAI API 連線正常")},{busy:"測試連線中…",success:"連線正常"})}catch(error){showStatus(error.message,"error")}}
+async function removeOpenAISetting(button){if(!confirm("確定刪除後台儲存的 OpenAI API Key？刪除後將改用 Worker 環境密鑰（若有設定）。"))return;try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/openai-settings",undefined,"DELETE");renderOpenAIStatus(result);showStatus(result.configured?"後台金鑰已刪除，已改用 Worker 環境密鑰":"OpenAI API Key 已刪除")},{busy:"刪除中…",success:"已刪除"})}catch(error){showStatus(error.message,"error")}}
+function renderRichMenuTokenStatus(data) {
+  const status = $("#richMenuTokenStatus");
+  if (!status) return;
+  const bot = data?.bot?.displayName || data?.bot?.basicId || "";
+  status.textContent = data?.configured
+    ? `已設定 ${data.masked || ""}${bot ? ` · ${bot}` : ""}`
+    : "尚未設定 Token";
+  status.classList.toggle("configured", Boolean(data?.configured));
+}
+async function loadRichMenuToken() {
+  try {
+    renderRichMenuTokenStatus(await api("/v1/admin/rich-menu/token"));
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+async function saveRichMenuToken(button) {
+  const input = $("#richMenuToken");
+  const value = String(input?.value || "").trim();
+  if (!value) return showStatus("請輸入 LINE Channel Access Token", "error");
+  try {
+    await withButtonFeedback(button, async () => {
+      const result = await api("/v1/admin/rich-menu/token", { token: value }, "PUT");
+      input.value = "";
+      renderRichMenuTokenStatus(result);
+      showStatus(`Token 已驗證並儲存${result.bot?.displayName ? `：${result.bot.displayName}` : ""}`);
+    }, { busy: "驗證儲存中…", success: "已儲存" });
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+async function testRichMenuToken(button) {
+  try {
+    await withButtonFeedback(button, async () => {
+      const result = await api("/v1/admin/rich-menu/token/test", {});
+      const status = await api("/v1/admin/rich-menu/token");
+      renderRichMenuTokenStatus({ ...status, bot: result.bot });
+      showStatus(`LINE 連線正常${result.bot?.displayName ? `：${result.bot.displayName}` : ""}`);
+    }, { busy: "測試連線中…", success: "連線正常" });
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+let adminCards=[];
+const adminCardInsightLabels={personality:"個性",interests:"興趣",wealth:"財富",health:"健康",career:"事業"};
+const adminCardSourceLabel=(card)=>card.card_kind==="personal"?"會員數位名片":card.source_type==="public_card"?"收藏會員名片":"掃描名片";
+const adminCardInsightText=(card)=>Object.keys(adminCardInsightLabels).map((key)=>card[`insight_${key}`]||"").join(" ");
+function populateAdminCardOwners(){const select=$("#adminCardOwner");if(!select)return;const current=select.value||"all";const owners=Array.from(new Map(adminCards.map((card)=>[card.owner_user_id,{id:card.owner_user_id,name:card.owner_name||card.owner_member_number||card.owner_user_id}])).values()).sort((a,b)=>a.name.localeCompare(b.name,"zh-Hant"));select.innerHTML='<option value="all">全部歸屬會員</option>'+owners.map((owner)=>`<option value="${esc(owner.id)}">${esc(owner.name)}</option>`).join("");select.value=owners.some((owner)=>owner.id===current)?current:"all";}
+function filteredAdminCards(){const query=String($("#adminCardSearch")?.value||"").trim().toLowerCase(),type=$("#adminCardType")?.value||"all",owner=$("#adminCardOwner")?.value||"all";return adminCards.filter((card)=>{if(type!=="all"&&card.card_kind!==type)return false;if(owner!=="all"&&card.owner_user_id!==owner)return false;if(!query)return true;return [card.display_name,card.english_name,card.company_name,card.job_title,card.department,card.mobile,card.company_phone,card.email,card.note,card.owner_name,adminCardInsightText(card)].join(" ").toLowerCase().includes(query);});}
+function renderAdminCards(){const cards=filteredAdminCards();$("#adminCardFilteredTotal").textContent=format(cards.length);$("#adminCardList").innerHTML=cards.length?cards.map((card)=>{const bound=Boolean(card.bound_user_id);const insight=card.insight_status||"";const insightBadge=insight==="ready"?'<span class="card-library-badge insight-ready">已完成</span>':insight==="failed"?'<span class="card-library-badge insight-failed">待重試</span>':insight==="queued"||insight==="processing"?'<span class="card-library-badge insight-pending">分析中</span>':'<span class="card-library-badge">尚未建立</span>';return `<tr><td><b>${esc(card.display_name||"未命名名片")}</b><small>${esc(card.english_name||"")}</small></td><td><b>${esc(card.company_name||"–")}</b><small>${esc([card.job_title,card.department].filter(Boolean).join("｜"))}</small></td><td><b>${esc(card.mobile||card.company_phone||"–")}</b><small>${esc(card.email||"")}</small></td><td><b>${esc(card.owner_name||"未命名會員")}</b><small>${esc(card.owner_member_number||card.owner_user_id)}</small></td><td><span class="card-library-badge source">${esc(adminCardSourceLabel(card))}</span></td><td>${bound?'<span class="card-library-badge bound">已綁定</span>':'<span class="card-library-badge">未綁定</span>'}</td><td><div class="card-library-insight-action">${insightBadge}<button class="card-library-retry" data-recalculate-admin-card-id="${esc(card.id)}" data-recalculate-admin-card-kind="${esc(card.card_kind)}" data-recalculate-admin-card-name="${esc(card.display_name||"未命名名片")}">${insight==="ready"?"重算":"重新計算"}</button></div></td><td><button class="crm-open" data-admin-card-id="${esc(card.id)}" data-admin-card-kind="${esc(card.card_kind)}">查看</button></td><td><button class="card-library-delete" data-delete-admin-card-id="${esc(card.id)}" data-delete-admin-card-kind="${esc(card.card_kind)}" data-delete-admin-card-name="${esc(card.display_name||"未命名名片")}">刪除</button></td></tr>`;}).join(""):'<tr><td colspan="9" class="crm-empty">目前沒有符合條件的名片</td></tr>';document.querySelectorAll("[data-admin-card-id]").forEach((button)=>button.onclick=()=>openAdminCardDetail(button.dataset.adminCardId,button.dataset.adminCardKind));document.querySelectorAll("[data-recalculate-admin-card-id]").forEach((button)=>button.onclick=()=>recalculateAdminCardInsights(button));document.querySelectorAll("[data-delete-admin-card-id]").forEach((button)=>button.onclick=()=>deleteAdminCard(button));}
+async function recalculateAdminCardInsights(button){const id=button.dataset.recalculateAdminCardId,kind=button.dataset.recalculateAdminCardKind,name=button.dataset.recalculateAdminCardName||"這張名片";if(!confirm(`確定重新計算「${name}」的五大標籤？\n\n只會更新五大標籤，不會重做 OCR、重複收藏或再次贈點。`))return;try{await withButtonFeedback(button,()=>api(`/v1/admin/cards/${encodeURIComponent(kind)}/${encodeURIComponent(id)}/recalculate-insights`,{},"POST"),{busy:"排程中…",success:"已排程"});showStatus(`「${name}」已重新排入五大標籤分析`);await loadAdminCards();setTimeout(()=>loadAdminCards(),4000);setTimeout(()=>loadAdminCards(),12000);}catch(error){showStatus(error.message,"error");}}
+async function deleteAdminCard(button){const id=button.dataset.deleteAdminCardId,kind=button.dataset.deleteAdminCardKind,name=button.dataset.deleteAdminCardName||"這張名片";const effect=kind==="collection"?"刪除後會從名片庫與使用者端移除，原始名片照片也會一併刪除。":"刪除後會從名片庫與該會員的「我的名片」移除；會員日後仍可重新建立。";if(!confirm(`確定刪除「${name}」？\n\n${effect}`))return;try{await withButtonFeedback(button,()=>api(`/v1/admin/cards/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,undefined,"DELETE"),{busy:"刪除中…",success:"已刪除"});$("#adminCardDetail").classList.add("hidden");showStatus(`已刪除「${name}」`);await loadAdminCards();}catch(error){showStatus(error.message,"error");}}
+function adminCardInsights(card){const status=card.insight_status||"";if(status!=="ready")return `<section class="member-crm-insights pending ${status==="failed"?"failed":""}"><div><h3>AI 五大標籤</h3><span>${status==="failed"?"稍後自動重試":"系統分析中"}</span></div><p>${esc(card.insight_error||"五大標籤將由系統背景補齊，不影響 OCR 與名片資料。")}</p></section>`;return `<section class="member-crm-insights"><div><h3>AI 五大標籤</h3><span>名片 CRM 溝通參考</span></div><section>${Object.entries(adminCardInsightLabels).map(([key,label])=>`<article class="${key}"><h4>${label}</h4><p>${esc(card[`insight_${key}`]||"尚待補充")}</p></article>`).join("")}</section></section>`;}
+function openAdminCardDetailReadonly(id,kind){const card=adminCards.find((item)=>item.id===id&&item.card_kind===kind);if(!card)return;const panel=$("#adminCardDetail");panel.classList.remove("hidden");panel.innerHTML=`<div class="crm-detail-head"><div><h2>${esc(card.display_name||"未命名名片")}</h2><small>${esc(adminCardSourceLabel(card))}｜名片 ID：${esc(card.id)}</small></div><button class="secondary" id="closeAdminCardDetail">關閉</button></div><div class="card-library-detail-grid"><article><small>公司／職稱</small><b>${esc(card.company_name||"未填寫")}</b><span>${esc([card.job_title,card.department].filter(Boolean).join("｜")||"–")}</span></article><article><small>手機／公司電話</small><b>${esc(card.mobile||"未填寫")}</b><span>${esc(card.company_phone||"–")}</span></article><article><small>Email</small><b>${esc(card.email||"未填寫")}</b><span>${esc(card.website_url||"")}</span></article><article><small>歸屬會員</small><b>${esc(card.owner_name||"未命名會員")}</b><span>${esc(card.owner_member_number||card.owner_user_id)}</span></article><article><small>LINE／會員綁定</small><b>${card.bound_user_id?"已綁定":"未綁定"}</b><span>${esc(card.bound_user_id||"–")}</span></article><article><small>建立／更新時間</small><b>${esc(card.created_at||"–")}</b><span>${esc(card.updated_at||"–")}</span></article></div>${card.address?`<section class="card-library-note"><h3>地址</h3><p>${esc(card.address)}</p></section>`:""}${card.service_description?`<section class="card-library-note"><h3>服務內容</h3><p>${esc(card.service_description)}</p></section>`:""}${card.note?`<section class="card-library-note"><h3>收藏者私人備註</h3><p>${esc(card.note)}</p></section>`:""}${adminCardInsights(card)}`;$("#closeAdminCardDetail").onclick=()=>panel.classList.add("hidden");panel.scrollIntoView({behavior:"smooth",block:"start"});}
+function openAdminCardDetail(id,kind){
+  const card=adminCards.find((item)=>item.id===id&&item.card_kind===kind);if(!card)return;
+  const panel=$("#adminCardDetail");panel.classList.remove("hidden");
+  const field=(key,label,type="text")=>`<label>${label}<input id="adminCard-${key}" type="${type}" value="${esc(card[key]||"")}"></label>`;
+  panel.innerHTML=`<div class="crm-detail-head"><div><h2>編輯名片：${esc(card.display_name||"未命名名片")}</h2><small>${esc(adminCardSourceLabel(card))}｜歸屬：${esc(card.owner_name||card.owner_user_id)}｜名片 ID：${esc(card.id)}</small></div><button class="secondary" id="closeAdminCardDetail">關閉</button></div><form id="adminCardEditForm" class="card-library-edit-form">${field("display_name","姓名")}${field("english_name","英文名")}${field("company_name","公司名稱")}${field("job_title","職稱")}${field("department","部門")}${field("mobile","手機","tel")}${field("company_phone","公司電話","tel")}${field("email","Email","email")}${field("website_url","網站","url")}${field("line_url","LINE 連結","url")}<label class="wide">地址<input id="adminCard-address" value="${esc(card.address||"")}"></label><label class="wide">服務內容<textarea id="adminCard-service_description" rows="4">${esc(card.service_description||"")}</textarea></label>${kind==="collection"?`<label class="wide">私人備註<textarea id="adminCard-note" rows="3">${esc(card.note||"")}</textarea></label>`:""}<div class="wide card-library-edit-actions"><button type="button" class="secondary" id="cancelAdminCardEdit">取消</button><button type="submit" class="primary" id="saveAdminCardEdit">儲存名片</button></div></form>${adminCardInsights(card)}`;
+  const close=()=>panel.classList.add("hidden");$("#closeAdminCardDetail").onclick=close;$("#cancelAdminCardEdit").onclick=close;
+  $("#adminCardEditForm").onsubmit=async(event)=>{event.preventDefault();const get=(key)=>String($(`#adminCard-${key}`)?.value||"").trim();const payload={displayName:get("display_name"),englishName:get("english_name"),companyName:get("company_name"),jobTitle:get("job_title"),department:get("department"),mobile:get("mobile"),companyPhone:get("company_phone"),email:get("email"),websiteUrl:get("website_url"),lineUrl:get("line_url"),address:get("address"),serviceDescription:get("service_description"),note:get("note")};try{await withButtonFeedback($("#saveAdminCardEdit"),()=>api(`/v1/admin/cards/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,payload,"PATCH"),{busy:"儲存中…",success:"已儲存"});showStatus("名片資料已更新，五大標籤已重新排入分析");await loadAdminCards();openAdminCardDetail(id,kind);}catch(error){showStatus(error.message,"error");}};
+  panel.scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function loadAdminCards(){const body=$("#adminCardList");if(body)body.innerHTML='<tr><td colspan="9" class="crm-empty">載入全站名片中…</td></tr>';try{const data=await api("/v1/admin/cards");adminCards=data.cards||[];$("#adminCardTotal").textContent=format(adminCards.length);$("#adminPersonalCardTotal").textContent=format(adminCards.filter((card)=>card.card_kind==="personal").length);$("#adminCollectionCardTotal").textContent=format(adminCards.filter((card)=>card.card_kind==="collection").length);$("#adminBoundCardTotal").textContent=format(adminCards.filter((card)=>card.bound_user_id).length);populateAdminCardOwners();renderAdminCards();}catch(error){if(body)body.innerHTML=`<tr><td colspan="9" class="crm-empty">${esc(error.message)}</td></tr>`;showStatus(error.message,"error");}}
+function exportAdminCards(){if(!adminCards.length)return showStatus("目前沒有可匯出的名片","error");const blob=new Blob([JSON.stringify(adminCards,null,2)],{type:"application/json;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`klinkweb-cards-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showStatus(`已匯出 ${adminCards.length} 張名片`);}
+
+let crmMembers = [];
+const memberAvatar = (member) => member.picture_url ? `<img class="crm-avatar" src="${esc(member.picture_url)}" alt="">` : `<span class="crm-avatar crm-avatar-empty">${esc((member.display_name || "會").slice(0, 1))}</span>`;
+const crmStatus = (member) => member.profile_completed_at ? '<span class="crm-tag ok">已完成註冊</span>' : '<span class="crm-tag">待完成註冊</span>';
+function renderMemberCrmInsights(insight = {}) {
+  const status=insight.status || '';
+  if(status==='queued' || status==='processing')return `<section class="member-crm-insights pending"><div><h3>AI 五大標籤</h3><span>系統分析中</span></div><p>系統正在依會員基本資料與公開名片建立 CRM 跟進建議，完成後會自動顯示。</p></section>`;
+  if(status==='failed')return `<section class="member-crm-insights pending failed"><div><h3>AI 五大標籤</h3><span>稍後自動重試</span></div><p>${esc(insight.error || '本次分析尚未完成')}</p></section>`;
+  if(status!=='ready')return `<section class="member-crm-insights pending"><div><h3>AI 五大標籤</h3><span>等待系統補算</span></div><p>此會員尚未建立五大標籤，系統會由背景排程自動處理。</p></section>`;
+  const labels={personality:'個性',interests:'興趣',wealth:'財富',health:'健康',career:'事業'};
+  return `<section class="member-crm-insights"><div><h3>AI 五大標籤</h3><span>更新時間：${esc(String(insight.updatedAt || '').replace('T',' ').slice(0,16))}</span></div><section>${Object.entries(labels).map(([key,label])=>`<article class="${key}"><h4>${label}</h4><p>${esc(insight.cards?.[key] || '尚待補充')}</p></article>`).join('')}</section></section>`;
+}
+function renderMembers() {
+  const query = String($("#memberSearch")?.value || "").trim().toLowerCase();
+  const filtered = crmMembers.filter((member) => [member.display_name, member.phone, member.company_member_number, member.member_number, member.id, member.email].join(" ").toLowerCase().includes(query));
+  $("#memberTotal").textContent = format(crmMembers.length);
+  $("#memberList").innerHTML = filtered.length ? filtered.map((member) => `<tr><td><div class="crm-member">${memberAvatar(member)}<div><b>${esc(member.display_name || "未命名會員")}</b><small>${esc(member.phone || member.email || member.id)}</small></div></div></td><td>${esc(member.company_member_number || "未填寫")}</td><td>${esc(member.member_number || "–")}</td><td>${esc(member.referrer_name || "直接加入")}<small>${esc(member.referrer_member_number || "")}</small></td><td><b class="crm-points">${format(member.points_balance)}</b></td><td>${crmStatus(member)}</td><td>${esc(String(member.created_at || "").replace("T", " ").slice(0, 16))}</td><td><button class="crm-open" data-member-id="${esc(member.id)}">CRM 檔案</button></td></tr>`).join("") : '<tr><td colspan="8" class="crm-empty">找不到符合條件的會員</td></tr>';
+  document.querySelectorAll("[data-member-id]").forEach((button) => { button.onclick = () => openMemberDetail(button.dataset.memberId); });
+}
+async function loadMembers() {
+  const list = $("#memberList");
+  if (!list) return;
+  list.innerHTML = '<tr><td colspan="7" class="crm-empty">載入會員資料中…</td></tr>';
+  try {
+    const data = await api("/v1/admin/members");
+    crmMembers = data.members || [];
+    renderMembers();
+  } catch (error) {
+    list.innerHTML = `<tr><td colspan="7" class="crm-empty danger">${esc(error.message)}</td></tr>`;
+  }
+}
+async function copyCrmReferralUrl(value, input) {
+  const referralUrl = String(value || '').trim();
+  if (!referralUrl) throw new Error('Missing referral URL');
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(referralUrl); return; } catch {}
+  }
+  input?.focus();
+  input?.select();
+  input?.setSelectionRange?.(0, referralUrl.length);
+  if (!document.execCommand?.('copy')) throw new Error('Clipboard unavailable');
+}
+async function openMemberDetail(id) {
+  const panel = $("#memberDetail");
+  panel.classList.remove("hidden");
+  panel.innerHTML = '<div class="crm-empty">載入 CRM 檔案中…</div>';
+  try {
+    const data = await api(`/v1/admin/members/${encodeURIComponent(id)}`);
+    const member = data.member;
+    const items = (title, rows, render) => `<section class="crm-detail-section"><h3>${title}</h3>${rows.length ? `<div class="crm-records">${rows.map(render).join("")}</div>` : '<p class="muted">尚無紀錄</p>'}</section>`;
+    const g = (v) => member.gender === v ? "selected" : "";
+    panel.innerHTML = `<div class="crm-detail-head"><div class="crm-member">${memberAvatar(member)}<div><h2>會員檔案：${esc(member.display_name || "未命名會員")}</h2><small>系統 ID：${esc(member.id)}</small></div></div><button class="secondary" id="closeMemberDetail">關閉</button></div><div class="crm-editor"><section><h3>基本資料</h3><div class="crm-fields"><label>姓名<input id="crmName" value="${esc(member.display_name)}"></label><label>手機<input id="crmPhone" value="${esc(member.phone)}"></label><label>公司會員編號<input id="crmCompany" value="${esc(member.company_member_number)}"></label><label>系統會員編號<input value="${esc(member.member_number)}" readonly></label><label>性別<select id="crmGender"><option value="" ${g("")}>未填寫</option><option value="female" ${g("female")}>女性</option><option value="male" ${g("male")}>男性</option><option value="other" ${g("other")}>其他</option><option value="prefer_not_to_say" ${g("prefer_not_to_say")}>不透露</option></select></label><label>生日<input id="crmBirthday" type="date" value="${esc(member.birthday)}"></label><label>業種<input id="crmIndustry" value="${esc(member.industry)}"></label><label>推薦人系統 ID<input id="crmReferrer" value="${esc(member.referrer_user_id || "")}" placeholder="留空清除"></label><label class="wide">聯絡地址<input id="crmAddress" value="${esc(member.address)}"></label></div></section><section><h3>管理員備註</h3><textarea id="crmNote">${esc(member.admin_note)}</textarea></section></div><section class="crm-referral-panel"><div><h3>LIFF 推薦網址</h3><p>此網址已綁定本會員的推薦歸屬，可直接複製給會員使用。</p></div><div class="crm-referral-copy"><input id="crmReferralUrl" type="url" value="${esc(data.referralUrl || "")}" readonly aria-label="LIFF 推薦網址"><button type="button" class="secondary" id="copyCrmReferralUrl">複製網址</button></div></section><div class="crm-summary"><div><small>目前點數</small><b class="crm-points">${format(member.points_balance)}</b></div><div><small>推薦人</small><b>${esc(member.referrer_name || "直接加入")}</b></div><div><small>聯絡電話</small><b>${esc(member.phone || "未填寫")}</b></div><div><small>註冊狀態</small>${crmStatus(member)}</div></div><div class="crm-detail-grid">${items("點數紀錄", data.ledger, (row) => `<div><b>${esc(ruleEventLabel[row.event_type] || row.event_type)}</b><span class="${Number(row.delta) >= 0 ? "crm-plus" : "crm-minus"}">${Number(row.delta) >= 0 ? "+" : ""}${row.delta}</span><small>${esc(row.created_at)}</small></div>`)}${items("課程／活動", data.courses, (row) => `<div><b>${esc(row.title)}</b><span>${esc(row.status)}</span><small>${esc(row.starts_at)}｜${row.source === "calendar_qr" ? "行事曆 QR 報名" : "會員前台報名"}</small></div>`)}${items("每日簽到", data.checkins, (row) => `<div><b>${esc(row.business_date)}</b><span>${esc(row.status)}</span><small>${esc(row.checked_in_at)}</small></div>`)}${items("成功邀約", data.referrals, (row) => `<div><b>${esc(row.display_name || "新會員")}</b><span>${esc(row.member_number || "")}</span><small>${esc(row.created_at)}</small></div>`)}</div><div class="crm-editor-actions"><button class="secondary" id="cancelMemberEdit">取消</button><button class="primary" id="saveMemberDetail">儲存檔案變更</button></div>`;
+    panel.querySelector('.crm-editor')?.insertAdjacentHTML('afterend',renderMemberCrmInsights(data.crmInsights));
+    const canAdjustPoints = Boolean(data.access?.canManagePoints);
+    const canAssignPermissions = Boolean(data.access?.canManagePermissions) && data.targetAccess?.role !== "owner";
+    const canDeleteMember = Boolean(data.access?.systemAccess) && data.targetAccess?.role !== "owner";
+    const summary = panel.querySelector(".crm-summary");
+    summary?.firstElementChild?.remove();
+    summary?.insertAdjacentHTML("beforebegin", `<section class="crm-point-panel"><div><small>可用點數餘額</small><strong>${format(member.points_balance)} <i>點</i></strong></div>${canAdjustPoints ? '<div class="crm-point-actions"><button type="button" data-point-action="grant">＋ 贈點</button><button type="button" data-point-action="deduct">－ 扣點</button></div>' : '<p class="crm-access-note">目前帳號沒有手動調整點數權限。</p>'}</section>`);
+    panel.querySelector(".crm-detail-grid")?.insertAdjacentHTML("beforebegin", `<section class="crm-permission-panel"><div class="crm-permission-head"><div><h3>管理權限</h3><p>勾選並儲存後，該會員即可使用自己的 LINE 帳號登入後台。</p></div>${canAssignPermissions ? '<button class="primary" id="saveMemberPermissions">儲存權限</button>' : ""}</div><div class="crm-permission-options"><label><input type="checkbox" id="crmSystemAccess" ${data.targetAccess?.systemAccess ? "checked" : ""} ${canAssignPermissions ? "" : "disabled"}><span><b>系統權限</b><small>可登入 CRM、增扣點數及管理營運內容。</small></span></label><label><input type="checkbox" id="crmOperatorAccess" ${data.targetAccess?.operatorAccess ? "checked" : ""} ${canAssignPermissions ? "" : "disabled"}><span><b>操作員</b><small>可登入 CRM 執行一般作業；不可設定權限或調整點數。</small></span></label></div>${canAssignPermissions ? "" : `<p class="crm-access-note">${data.targetAccess?.role === "owner" ? "此帳號為最高管理者，權限由環境設定保護。" : "只有最高管理者可變更權限。"}</p>`}</section>`);
+    $("#closeMemberDetail").onclick = () => panel.classList.add("hidden");
+    $("#cancelMemberEdit").onclick = () => panel.classList.add("hidden");
+    if (canDeleteMember) {
+      $("#closeMemberDetail")?.insertAdjacentHTML("beforebegin", '<button type="button" class="crm-delete-member" id="deleteMemberAccount">刪除會員</button>');
+      $("#deleteMemberAccount").onclick = async (event) => {
+        const label = member.display_name || member.member_number || member.id;
+        if (!confirm(`確定刪除「${label}」？\n\n此操作會停用帳號並移除登入識別，但會保留點數與稽核歷史。`)) return;
+        try {
+          await withButtonFeedback(event.currentTarget, async () => {
+            await api(`/v1/admin/members/${encodeURIComponent(id)}`, undefined, "DELETE");
+            showStatus("會員帳號已刪除");
+            panel.classList.add("hidden");
+            await loadMembers();
+          }, { busy:"刪除中…", success:"已刪除" });
+        } catch (error) {
+          showStatus(error.message, "error");
+        }
+      };
+    }
+    $("#copyCrmReferralUrl")?.addEventListener("click", async () => {
+      try {
+        await copyCrmReferralUrl(data.referralUrl, $("#crmReferralUrl"));
+        showStatus("LIFF 推薦網址已複製");
+      } catch {
+        showStatus("無法自動複製，請長按網址後複製", "error");
+      }
+    });
+    $("#saveMemberDetail").onclick = async () => { const button = $("#saveMemberDetail"); button.disabled = true; button.textContent = "儲存中…"; try { await api(`/v1/admin/members/${encodeURIComponent(id)}`, {displayName:$("#crmName").value,phone:$("#crmPhone").value,companyMemberNumber:$("#crmCompany").value,gender:$("#crmGender").value,birthday:$("#crmBirthday").value,industry:$("#crmIndustry").value,address:$("#crmAddress").value,adminNote:$("#crmNote").value,referrerUserId:$("#crmReferrer").value}, "PATCH"); showStatus("會員檔案已儲存"); await loadMembers(); await openMemberDetail(id); } catch(error) { showStatus(error.message,"error"); button.disabled=false; button.textContent="儲存檔案變更"; } };
+    $("#saveMemberPermissions")?.addEventListener("click", async (event) => { try { await withButtonFeedback(event.currentTarget, async () => { await api(`/v1/admin/members/${encodeURIComponent(id)}/permissions`, {systemAccess:$("#crmSystemAccess").checked,operatorAccess:$("#crmOperatorAccess").checked}, "PATCH"); showStatus("管理權限已更新"); await loadMembers(); await openMemberDetail(id); }, {busy:"儲存權限中…",success:"權限已更新"}); } catch(error) { showStatus(error.message,"error"); } });
+    if (canAdjustPoints) {
+      panel.insertAdjacentHTML("beforeend", `<div class="crm-point-modal" id="crmPointModal" aria-hidden="true"><div class="crm-point-modal-backdrop" data-close-point-modal></div><form class="crm-point-modal-sheet" id="crmPointForm" role="dialog" aria-modal="true" aria-labelledby="crmPointModalTitle"><header><div><small>會員：${esc(member.display_name || member.member_number || member.id)}</small><h3 id="crmPointModalTitle">調整點數</h3></div><button type="button" data-close-point-modal aria-label="關閉">×</button></header><input type="hidden" id="crmPointAction"><label>點數數量<input id="crmPointAmount" type="number" min="1" max="1000000" step="1" required placeholder="請輸入正整數"></label><label>備註理由 <em>必填</em><textarea id="crmPointReason" maxlength="500" required placeholder="例如：活動獎勵、現場補發、誤發扣回…"></textarea></label><p class="crm-point-modal-hint">本次操作將寫入會員點數明細與後台稽核紀錄。</p><div><button type="button" class="secondary" data-close-point-modal>取消</button><button type="submit" class="primary" id="confirmPointAdjustment">確認送出</button></div></form></div>`);
+      const modal = $("#crmPointModal");
+      const closePointModal = () => { modal.classList.remove("open"); modal.setAttribute("aria-hidden", "true"); };
+      panel.querySelectorAll("[data-close-point-modal]").forEach((node) => { node.onclick = closePointModal; });
+      panel.querySelectorAll("[data-point-action]").forEach((button) => { button.onclick = () => { const action = button.dataset.pointAction; const label = {grant:"贈點",deduct:"扣點"}[action]; $("#crmPointForm").reset(); $("#crmPointAction").value = action; $("#crmPointModalTitle").textContent = label; modal.classList.add("open"); modal.setAttribute("aria-hidden", "false"); setTimeout(() => $("#crmPointAmount").focus(), 0); }; });
+      $("#crmPointForm").onsubmit = async (event) => { event.preventDefault(); const action = $("#crmPointAction").value; const label = {grant:"贈點",deduct:"扣點"}[action]; const points = Number($("#crmPointAmount").value); const note = $("#crmPointReason").value.trim(); if (!Number.isInteger(points) || points <= 0) return showStatus("請輸入正整數點數", "error"); if (!note) return showStatus("請填寫備註理由", "error"); try { await withButtonFeedback($("#confirmPointAdjustment"), async () => { await api(`/v1/admin/members/${encodeURIComponent(id)}/points`, {action,points,note,requestId:crypto.randomUUID()}, "POST"); closePointModal(); showStatus(`${label}成功`); await loadMembers(); await openMemberDetail(id); }, {busy:"處理中…",success:"已完成"}); } catch(error) { showStatus(error.message,"error"); } };
+    }
+    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+  } catch (error) {
+    panel.innerHTML = `<p class="danger">${esc(error.message)}</p>`;
+  }
+}
+const localIso = (value) => (value ? new Date(value).toISOString() : "");
+async function submitForm(event, endpoint, body) {
+  event.preventDefault();
+  const form = event.target;
+  const button = event.submitter || form.querySelector('[type="submit"]');
+  try {
+    await withButtonFeedback(button, async () => {
+      const result = await api(endpoint, body());
+      form.reset();
+      showStatus(`建立完成，ID：${result.id}`);
+      return result;
+    }, { busy: "建立中…", success: "已建立" });
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+document
+  .querySelectorAll("[data-page]")
+  .forEach((button) =>
+    button.addEventListener("click", () => switchPage(button.dataset.page)),
+  );
+document
+  .querySelectorAll("[data-go]")
+  .forEach((button) =>
+    button.addEventListener("click", () => switchPage(button.dataset.go)),
+  );
+$("#refresh").addEventListener("click", (event) =>
+  withButtonFeedback(event.currentTarget, async () => {
+    const ok = await overview();
+    if (ok) showStatus("資料已重新同步");
+  }, { busy:"同步中…", success:"已同步" }),
+);
+$("#refreshMembers").addEventListener("click", (event) =>
+  withButtonFeedback(event.currentTarget, loadMembers, { busy:"整理中…", success:"已更新" }),
+);
+$("#memberSearch").addEventListener("input", renderMembers);
+$("#refreshAdminCards")?.addEventListener("click",(event)=>withButtonFeedback(event.currentTarget,loadAdminCards,{busy:"整理中…",success:"已更新"}));
+$("#exportAdminCards")?.addEventListener("click",exportAdminCards);
+$("#adminCardSearch")?.addEventListener("input",renderAdminCards);
+$("#adminCardType")?.addEventListener("change",renderAdminCards);
+$("#adminCardOwner")?.addEventListener("change",renderAdminCards);
+$("#saveRichMenuToken")?.addEventListener("click", event => saveRichMenuToken(event.currentTarget));
+$("#testRichMenuToken")?.addEventListener("click", event => testRichMenuToken(event.currentTarget));
+$("#refreshAIUsage")?.addEventListener("click",event=>withButtonFeedback(event.currentTarget,loadAIProviderUsage,{busy:"讀取中…",success:"已更新"}));
+$("#testGeminiKey")?.addEventListener("click",event=>testGeminiSetting(event.currentTarget));
+$("#saveOpenAIKey")?.addEventListener("click",event=>saveOpenAISetting(event.currentTarget));
+$("#testOpenAIKey")?.addEventListener("click",event=>testOpenAISetting(event.currentTarget));
+$("#deleteOpenAIKey")?.addEventListener("click",event=>removeOpenAISetting(event.currentTarget));
+$("#logout").addEventListener("click", () => {
+  localStorage.removeItem("klinkweb_session");
+  location.href = "/";
+});
+$("#ruleForm")?.addEventListener("submit", (event) =>
+  submitForm(event, "/v1/admin/point-rules", () => ({
+    eventType: $("#ruleEvent").value.trim(),
+    points: Number($("#rulePoints").value),
+    awardFrequency: $("#ruleFrequency").value,
+    status: $("#ruleStatus").value,
+  })).then(() => loadPointRules()),
+);
+const ruleFrequencyLabel = { once:"僅一次", daily:"每日一次", per_completion:"完成給一次" };
+const ruleEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"簽到打卡", course_registered:"課程報名", attendance_verified:"課程簽到", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"任務完成", card_collection_reward:"收藏名片成功贈點", admin_points_grant:"後台贈點", admin_points_deduct:"後台扣點", admin_points_backfill:"補登舊點數", daily_ad_view:"簽到觀看", daily_ad_view_completed:"簽到觀看", daily_view:"簽到觀看" };
+async function loadPointRules() {
+  const container = $("#ruleList");
+  if (!container) return;
+  try {
+    const data = await api("/v1/admin/point-rules");
+    container.innerHTML = data.rules.length ? data.rules.map((rule) => {
+      const serviceRule=rule.event_type==="card_collection_reward";
+      const deduction=false;
+      const direction="贈點";
+      const pointLabel="每次贈送（K點）";
+      return `<form class="rule-row ${deduction?"deduction-rule":"grant-rule"}" data-rule-id="${rule.id}"><div class="rule-event" data-event-type="${rule.event_type}"><span class="rule-direction ${deduction?"deduct":"grant"}">${direction}</span>${ruleEventLabel[rule.event_type] || rule.event_type}<small>${rule.event_type}</small></div><label>${pointLabel}<input data-rule-field="points" type="number" min="${serviceRule?1:0}" value="${Number(rule.points)}"></label><label>執行頻率<select data-rule-field="frequency">${Object.entries(ruleFrequencyLabel).map(([key,label]) => `<option value="${key}" ${rule.award_frequency === key ? "selected" : ""} ${serviceRule && key !== "per_completion" ? "disabled" : ""}>${serviceRule&&key==="per_completion"?"每次成功交易":label}</option>`).join("")}</select></label><label>狀態<select data-rule-field="status">${["draft","active","paused","archived"].map((value) => `<option value="${value}" ${rule.status === value ? "selected" : ""}>${value === "draft" ? "草稿" : value === "active" ? "啟用" : value === "paused" ? "暫停" : "封存"}</option>`).join("")}</select></label><button class="rule-save" type="submit">儲存${direction}</button></form>`;
+    }).join("") : '<p class="muted">尚未建立點數規則。</p>';
+  } catch (error) {
+    container.innerHTML = `<p class="danger">${error.message}</p>`;
+  }
+}
+$("#ruleList").addEventListener("submit", async (event) => {
+  const form = event.target.closest(".rule-row");
+  if (!form) return;
+  event.preventDefault();
+  const button = event.submitter || form.querySelector('[type="submit"]');
+  try {
+    await withButtonFeedback(button, async () => {
+      await api(`/v1/admin/point-rules/${form.dataset.ruleId}`, {
+        eventType: form.querySelector(".rule-event").dataset.eventType,
+        points: Number(form.querySelector('[data-rule-field="points"]').value),
+        awardFrequency: form.querySelector('[data-rule-field="frequency"]').value,
+        status: form.querySelector('[data-rule-field="status"]').value,
+      });
+      showStatus("贈點規則已儲存");
+    }, { busy: "儲存中…", success: "已儲存" });
+    await loadPointRules();
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+});
+$("#refreshRules").addEventListener("click", (event) =>
+  withButtonFeedback(event.currentTarget, loadPointRules, { busy:"整理中…", success:"已更新" }),
+);
+$("#reconcilePoints")?.addEventListener("click", async () => {
+  const button = $("#reconcilePoints");
+  if (!confirm("將依目前啟用規則補發尚未入帳的既有完成條件；已入帳資料不會重複發點。是否繼續？")) return;
+  button.disabled = true;
+  button.textContent = "補發中…";
+  try {
+    const result = await api("/v1/admin/point-rules/reconcile", {});
+    showStatus(`補發完成：新增 ${result.awarded} 筆，略過 ${result.skipped} 筆。`);
+  } catch (error) {
+    showStatus(error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "補發既有完成條件";
+  }
+});
+async function loadCourses() {
+  const container = $("#courseList");
+  if (!container) return;
+  container.innerHTML = '<p class="muted">載入中…</p>';
+  try {
+    const data = await api("/v1/admin/courses");
+    const courses = data.courses || [];
+    container.innerHTML = courses.length ? courses.map(course => `<article><div><strong>${esc(course.title || "未命名活動")}</strong><p>${esc(course.description || "尚無說明")}</p></div><span class="${course.status === "published" ? "published" : "draft"}">${course.status === "published" ? "公開" : "草稿"}</span></article>`).join("") : '<p class="muted">尚未建立課程／活動。</p>';
+  } catch (error) {
+    container.innerHTML = `<p class="danger">${esc(error.message)}</p>`;
+  }
+}
+$("#courseForm").addEventListener("submit", (event) =>
+  submitForm(event, "/v1/admin/courses", () => ({
+    title: $("#courseTitle").value.trim(),
+    description: $("#courseDesc").value.trim(),
+    status: $("#courseStatus").value,
+  })).then(() => loadCourses()),
+);
+$("#refreshCourses")?.addEventListener("click", event => withButtonFeedback(event.currentTarget, loadCourses, { busy:"整理中…", success:"已更新" }));
+
+// Ported from MLM /console/calendar.  The UI and calendar behaviour are kept
+// intact, while A-KAFFIT TEAM uses the existing course_sessions table so points,
+// CRM and attendance stay on the same record.
+let calendarEvents = [];
+let calendarViewDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const calendarPad = (value) => String(value).padStart(2, "0");
+const calendarDateOnly = (value) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : `${d.getFullYear()}-${calendarPad(d.getMonth()+1)}-${calendarPad(d.getDate())}`; };
+const calendarTimeOnly = (value) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : `${calendarPad(d.getHours())}:${calendarPad(d.getMinutes())}`; };
+const calendarDateTime = (date, time) => date && time ? new Date(`${date}T${time}:00`).toISOString() : "";
+const calendarRange = (event) => `${calendarDateOnly(event.startsAt)} ${calendarTimeOnly(event.startsAt)}–${calendarTimeOnly(event.endsAt)}`;
+function calendarStatus(message, error=false) { const node = $("#calendarEditStatus"); node.textContent = message; node.className = error ? "danger" : "muted"; }
+function renderFixedCheckinQr() {
+  const url = `${location.origin}/r/checkin`;
+  const holder = $("#calendarSmartQrImage");
+  if (!holder) return;
+  // Avoid the old qrcodejs CDN race that could leave this area blank.
+  holder.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&format=png&data=${encodeURIComponent(url)}" alt="固定 QR 智慧報到">`;
+  $("#calendarSmartQrUrl").textContent = url;
+  $("#calendarTestQr").href = url;
+  $("#calendarCopyQr").onclick = async () => { await navigator.clipboard.writeText(url); showStatus("固定報到連結已複製"); };
+}
+function renderCalendarMonth() {
+  const year = calendarViewDate.getFullYear(), month = calendarViewDate.getMonth();
+  $("#calendarMonthTitle").textContent = `${year} 年 ${month + 1} 月`;
+  const firstDay = new Date(year, month, 1); const mondayIndex = (firstDay.getDay() + 6) % 7;
+  const lastDay = new Date(year, month + 1, 0).getDate(); const cells = [];
+  for (let i = 0; i < mondayIndex; i += 1) cells.push('<div class="calendar-cell muted-cell"></div>');
+  for (let day = 1; day <= lastDay; day += 1) {
+    const key = `${year}-${calendarPad(month+1)}-${calendarPad(day)}`;
+    const rows = calendarEvents.filter(event => calendarDateOnly(event.startsAt) === key);
+    cells.push(`<div class="calendar-cell ${rows.length ? "has-event" : ""}"><b>${day}</b>${rows.slice(0,2).map(event => `<button class="calendar-event" data-calendar-edit="${esc(event.sessionId)}"><small>${esc(calendarTimeOnly(event.startsAt))}</small>${esc(event.title || event.courseTitle)}</button>`).join("")}${rows.length > 2 ? `<span class="calendar-more">+${rows.length-2} 場</span>` : ""}</div>`);
+  }
+  while (cells.length % 7) cells.push('<div class="calendar-cell muted-cell"></div>');
+  $("#calendarMonth").innerHTML = cells.join("");
+  document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit));
+}
+function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯</button></div></article>`).join("") : '<p class="muted">目前沒有行事曆活動。請新增場次。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
+async function loadCalendar() { try { const data = await api('/v1/admin/calendar/events'); calendarEvents = data.events || []; renderFixedCheckinQr(); renderCalendarMonth(); renderCalendarList(); } catch (error) { showStatus(error.message, 'error'); } }
+function clearCalendarEditor() { $("#calendarEditor").hidden = true; $("#calendarEventId").value = ""; calendarStatus(""); }
+function fillCalendarEditor(event, { copy = false } = {}) {
+  $("#calendarEditor").hidden = false;
+  $("#calendarEditorTitle").textContent = copy ? "複製活動" : event ? "編輯活動" : "新增活動";
+  $("#calendarEventId").value = copy ? "" : event?.sessionId || "";
+  $("#calendarSessionTitle").value = event?.title || "";
+  $("#calendarMode").value = event?.mode || "physical";
+  $("#calendarEventDate").value = event ? calendarDateOnly(event.startsAt) : "";
+  $("#calendarStartsAt").value = event ? calendarTimeOnly(event.startsAt) : "";
+  $("#calendarEndsAt").value = event ? calendarTimeOnly(event.endsAt) : "";
+  $("#calendarRegistrationStartsAt").value = event ? calendarTimeOnly(event.checkinOpensAt) : "";
+  $("#calendarRegistrationEndsAt").value = event ? calendarTimeOnly(event.checkinClosesAt) : "";
+  $("#calendarVenueName").value = event?.venueName || "";
+  $("#calendarVenueAddress").value = event?.venueAddress || "";
+  $("#calendarCoverUrl").value = event?.coverUrl || "";
+  $("#calendarCoverImage").value = "";
+  $("#calendarCoverStatus").textContent = event?.coverUrl ? "已有活動封面；可重新上傳取代。" : "可上傳圖片；系統會自動壓縮後儲存。";
+  $("#calendarMeetingUrl").value = event?.meetingUrl || "";
+  // The original value is stored only as a hash, so it cannot be copied back safely.
+  $("#calendarCheckinCode").value = "";
+  $("#calendarDelete").hidden = !event || copy;
+  calendarStatus(copy
+    ? "已複製場次內容。請調整日期與時間後儲存；現場報到碼不會複製，需使用時請重新設定。"
+    : event ? "已載入活動，可調整後儲存。" : "填完場次、報到時間與地點後儲存。", false);
+  $("#calendarEditor").scrollIntoView({behavior:'smooth', block:'start'});
+}
+function openCalendarEditor(id = '') { fillCalendarEditor(calendarEvents.find(row => row.sessionId === id)); }
+function copyCalendarEvent() {
+  const sourceId = $("#calendarEventId").value;
+  const source = calendarEvents.find(row => row.sessionId === sourceId);
+  if (!source) {
+    $("#calendarEditor").hidden = false;
+    calendarStatus("請先從行事曆或活動列表點選一場既有活動，再按「複製活動」。", true);
+    $("#calendarEditor").scrollIntoView({behavior:'smooth', block:'start'});
+    return;
+  }
+  fillCalendarEditor(source, { copy: true });
+}
+async function saveCalendarEvent() {
+  const date = $("#calendarEventDate").value;
+  const payload = {
+    id: $("#calendarEventId").value,
+    title: $("#calendarSessionTitle").value.trim(),
+    mode: $("#calendarMode").value,
+    startsAt: calendarDateTime(date, $("#calendarStartsAt").value),
+    endsAt: calendarDateTime(date, $("#calendarEndsAt").value),
+    checkinOpensAt: calendarDateTime(date, $("#calendarRegistrationStartsAt").value),
+    checkinClosesAt: calendarDateTime(date, $("#calendarRegistrationEndsAt").value),
+    venueName: $("#calendarVenueName").value.trim(),
+    venueAddress: $("#calendarVenueAddress").value.trim(),
+    coverUrl: $("#calendarCoverUrl").value.trim(),
+    meetingUrl: $("#calendarMeetingUrl").value.trim(),
+    checkinCode: $("#calendarCheckinCode").value.trim(),
+    status: "scheduled"
+  };
+  if (!payload.title) return calendarStatus("請填寫活動名稱。", true);
+  if (!payload.startsAt || !payload.endsAt || !payload.checkinOpensAt || !payload.checkinClosesAt) {
+    return calendarStatus("請填寫活動日期、活動時間與報到起訖時間。", true);
+  }
+  if (payload.mode === "physical" && !payload.venueName && !payload.venueAddress) {
+    return calendarStatus("現場活動請填寫場地名稱或地址。", true);
+  }
+  if (payload.mode === "online" && !payload.meetingUrl) {
+    return calendarStatus("線上活動請填寫線上會議網址。", true);
+  }
+  const button = $("#calendarSave");
+  try {
+    await withButtonFeedback(button, async () => {
+      const result = await api('/v1/admin/calendar/events', payload);
+      calendarStatus("已儲存。系統已同步活動資料、會員報名、簽到與點數。");
+      await loadCalendar();
+      openCalendarEditor(result.id);
+    }, { busy:"儲存中…", success:"已儲存" });
+  } catch(error) {
+    const message = {
+      calendar_title_required: "請填寫活動名稱。",
+      missing_calendar_fields: "請填寫活動日期、活動時間與報到起訖時間。",
+      invalid_calendar_range: "結束時間必須晚於開始時間；報到結束也必須晚於報到開始。",
+      course_not_found: "所選課程不存在，請重新選擇或改為不連結既有課程。"
+    }[error.message] || error.message;
+    calendarStatus(message, true);
+  }
+}
+async function uploadCalendarCover(input) {
+  const original = input.files?.[0];
+  const urlField = $("#calendarCoverUrl");
+  const status = $("#calendarCoverStatus");
+  if (!original || !urlField) return;
+  try {
+    status.textContent = original.size > 900 * 1024 ? "圖片壓縮中..." : "圖片上傳中...";
+    const file = await optimizeTemplateImage(original);
+    const form = new FormData();
+    form.append("image", file, file.name);
+    status.textContent = `上傳中（${Math.round(original.size / 1024)} KB → ${Math.round(file.size / 1024)} KB）...`;
+    const response = await fetch("/v1/admin/calendar/upload-image", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "活動圖片上傳失敗");
+    urlField.value = data.url;
+    status.textContent = `已上傳：${Math.round(original.size / 1024)} KB → ${Math.round(data.size / 1024)} KB；儲存活動後生效。`;
+  } catch (error) {
+    input.value = "";
+    status.textContent = `上傳失敗：${error.message || "請改用 JPG、PNG 或 WebP 圖片"}`;
+  }
+}
+async function deleteCalendarEvent() { const id = $("#calendarEventId").value; if (!id || !confirm('確定取消此場次？既有報名與簽到紀錄會保留。')) return; const button=$("#calendarDelete"); try { await withButtonFeedback(button, async()=>{ await api(`/v1/admin/calendar/events/${encodeURIComponent(id)}`, null, 'DELETE'); clearCalendarEditor(); await loadCalendar(); showStatus('場次已取消'); }, {busy:'取消中…',success:'已取消'}); } catch(error) { calendarStatus(error.message, true); } }
+$("#calendarNew")?.addEventListener('click', copyCalendarEvent); $("#calendarRefresh")?.addEventListener('click', loadCalendar); $("#calendarCoverImage")?.addEventListener('change', (event) => uploadCalendarCover(event.target)); $("#calendarPrev")?.addEventListener('click', () => { calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()-1, 1); renderCalendarMonth(); }); $("#calendarNext")?.addEventListener('click', () => { calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()+1, 1); renderCalendarMonth(); }); $("#calendarClose")?.addEventListener('click', clearCalendarEditor); $("#calendarSave")?.addEventListener('click', saveCalendarEvent); $("#calendarDelete")?.addEventListener('click', deleteCalendarEvent);
+const templateButtons = (value) =>
+  String(value || "")
+    .split("\n")
+    .map((line) => line.split("｜"))
+    .map(([label, uri]) => ({
+      label: (label || "").trim(),
+      type: "uri",
+      uri: (uri || "").trim(),
+    }))
+    .filter((button) => button.label && button.uri)
+    .slice(0, 4);
+$("#campaignForm")?.addEventListener("submit", (event) =>
+  submitForm(event, "/v1/admin/ad-campaigns", () => ({
+    name: $("#campaignName").value.trim(),
+    startsAt: localIso($("#campaignStart").value),
+    endsAt: localIso($("#campaignEnd").value),
+    requiredCreativeCount: Number($("#campaignCount").value),
+    rotationMode: $("#campaignRotation").value,
+    status: $("#campaignStatus").value,
+  })),
+);
+$("#creativeForm")?.addEventListener("submit", (event) =>
+  submitForm(event, "/v1/admin/ad-creatives", () => ({
+    campaignId: $("#creativeCampaign").value.trim(),
+    type: $("#creativeType").value,
+    title: $("#creativeTitle").value.trim(),
+    mediaUrl: $("#creativeUrl").value.trim(),
+    imageLink: $("#creativeImageLink").value.trim(),
+    bubbleSize: $("#creativeBubbleSize").value,
+    imageAspectRatio: $("#creativeAspectRatio").value.trim(),
+    imageAspectMode: $("#creativeAspectMode").value,
+    buttons: templateButtons($("#creativeButtons").value),
+    requiredWatchSeconds: Number($("#creativeSeconds").value),
+  })),
+);
+overview();
+loadAdminIdentity();
+
+// A-KAFFIT 簽到活動模板編輯器，共用同一套會員、活動與點數資料。
+let checkinTemplateDraft = null;
+let checkinTemplates = [];
+let activeCheckinTemplateId = "";
+let templateDirectoryPage = 1;
+let templateDirectoryQuery = "";
+const templateDirectoryPageSize = 10;
+const esc = (value) => String(value ?? "").replace(/[&<>'\"]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char]));
+const sizes = ["nano","micro","deca","hecto","kilo","mega","giga"];
+const validSize = (x) => sizes.includes(String(x || "").toLowerCase()) ? String(x).toLowerCase() : "nano";
+const validRatio = (x) => /^\d{1,4}:\d{1,4}$/.test(String(x || "").replace(/[：]/g, ":")) ? String(x).replace(/[：]/g, ":") : "400:600";
+const validMode = (x) => String(x).toLowerCase() === "fit" ? "fit" : "cover";
+const validRotation = (x) => String(x).toLowerCase() === "sequential" ? "sequential" : "random";
+const defaultButton = () => ({ label:"開啟連結", type:"uri", text:"", uri:"", color:"" });
+const defaultPage = () => ({id:`page_${crypto.randomUUID()}`,mediaType:"image",mediaAssetId:"",mediaName:"",imageUrl:"",videoUrl:"",posterUrl:"",imageLink:"",bubbleSize:"nano",imageAspectRatio:"400:600",imageAspectMode:"cover",requiredWatchSeconds:3,requiredCompletionRatio:.8,buttons:[]});
+const dailyEntryUrl = () => `${location.origin}/?tab=daily`;
+const defaultTemplate = () => ({id:"",campaignId:"",active:true,altText:"今日簽到",rotationMode:"random",pages:[defaultPage()]});
+function normalizeTemplate(data = {}) { const base=defaultTemplate(); return { id:String(data.id || ""), campaignId:String(data.campaignId || ""), active:data.active !== false, altText:String(data.altText || base.altText), rotationMode:validRotation(data.rotationMode), pages:(Array.isArray(data.pages)&&data.pages.length?data.pages:base.pages).slice(0,12).map(p=>{const d=defaultPage(),mediaType=p.mediaType==="video"?"video":"image";return {id:String(p.id||d.id),mediaType,mediaAssetId:String(p.mediaAssetId||""),mediaName:String(p.mediaName||""),imageUrl:String(p.imageUrl||""),videoUrl:String(p.videoUrl||""),posterUrl:String(p.posterUrl||""),imageLink:String(p.imageLink||""),bubbleSize:validSize(p.bubbleSize),imageAspectRatio:validRatio(p.imageAspectRatio),imageAspectMode:validMode(p.imageAspectMode),requiredWatchSeconds:Math.max(0,Number(p.requiredWatchSeconds)||3),requiredCompletionRatio:Math.max(0,Math.min(1,Number(p.requiredCompletionRatio)||.8)),buttons:(Array.isArray(p.buttons)?p.buttons:[]).slice(0,4).map(b=>({label:String(b.label||"按鈕"),type:"uri",text:"",uri:String(b.uri||""),color:String(b.color||"")}))}}) }; }
+function pageHtml(page, index, collapsed=false) {
+  const opts=(values,current)=>values.map(v=>`<option value="${v}" ${v===current?"selected":""}>${v}</option>`).join("");
+  const videoSelected=page.mediaType==="video"&&page.mediaAssetId;
+  return `<div class="templatePage${collapsed?" collapsed":""}" data-page-index="${index}"><input data-field="id" type="hidden" value="${esc(page.id)}"><div class="templatePageHead"><strong>第 ${index+1} 頁 <span class="template-muted">圖片或影片素材</span></strong><button type="button" class="dangerButton" data-template-action="remove-page" ${index===0?"disabled":""}>刪除頁面</button></div>
+  <div class="template-media-type"><label>素材類型<select data-field="mediaType"><option value="image" ${page.mediaType!=="video"?"selected":""}>圖片</option><option value="video" ${page.mediaType==="video"?"selected":""}>影片</option></select></label></div>
+  <div class="templateImageUpload ${page.mediaType==="video"?"hidden":""}"><div class="templateUploadRow"><label>上傳圖片<input data-field="imageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /></label><a href="${esc(page.imageUrl||"#")}" target="_blank" rel="noopener">查看圖片</a></div><input data-field="imageUrl" type="url" value="${esc(page.imageUrl)}" placeholder="上傳後自動產生圖片 URL，也可貼 HTTPS 圖片網址" /><div class="templateImageStatus">建議尺寸 800 × 1200 px（2:3），檔案 1MB 內。</div></div>
+  <div class="templateVideoPicker ${page.mediaType!=="video"?"hidden":""}"><input data-field="mediaAssetId" type="hidden" value="${esc(page.mediaAssetId)}"><input data-field="mediaName" type="hidden" value="${esc(page.mediaName)}"><input data-field="videoUrl" type="hidden" value="${esc(page.videoUrl)}"><input data-field="posterUrl" type="hidden" value="${esc(page.posterUrl)}"><div class="template-video-selected">${videoSelected?`${page.posterUrl?`<img src="${esc(page.posterUrl)}" alt="">`:'<span class="video-placeholder">▶</span>'}<div><strong>${esc(page.mediaName||"已選擇影片")}</strong><small>已從影片庫導入</small></div>`:'<div><strong>尚未選擇影片</strong><small>請從影片庫選擇或上傳 MP4</small></div>'}</div><button type="button" class="secondaryButton" data-template-action="select-video">從影片庫選擇</button></div>
+  <div class="templateGrid"><label>詳細說明連結<input data-field="imageLink" type="url" value="${esc(page.imageLink)}" placeholder="可空白" /></label><label>卡片 Size<select data-field="bubbleSize">${opts(sizes,page.bubbleSize)}</select></label><label>素材比例<input data-field="imageAspectRatio" type="text" value="${esc(validRatio(page.imageAspectRatio))}" /></label><label>顯示模式<select data-field="imageAspectMode">${opts(["cover","fit"],page.imageAspectMode)}</select></label><label>最少觀看秒數<input data-field="requiredWatchSeconds" type="number" min="0" max="3600" value="${Number(page.requiredWatchSeconds||3)}"></label><label>影片完成比例（%）<input data-field="requiredCompletionPercent" type="number" min="0" max="100" value="${Math.round(Number(page.requiredCompletionRatio||.8)*100)}" ${page.mediaType!=="video"?"disabled":""}></label></div><div class="templateButtons">${page.buttons.map((b,i)=>buttonHtml(b,i)).join("")}</div><div style="margin-top:10px"><button type="button" class="secondaryButton" data-template-action="add-button">新增 button</button></div></div>`;
+}
+function buttonHtml(button,index) { const color=/^#[0-9a-f]{6}$/i.test(button.color)?button.color:"#06C755"; return `<div class="templateButton" data-button-index="${index}"><div class="templateButtonGrid templateLinkButtonGrid"><label>按鈕文字<input data-field="label" value="${esc(button.label)}" /></label><label>連結 URL<input data-field="uri" type="url" value="${esc(button.uri)}" placeholder="https://..." /></label><label>顏色<div class="templateColorRow"><input data-field="colorPicker" type="color" value="${color}" /><input data-field="color" value="${esc(button.color)}" placeholder="#06C755" /></div></label><button type="button" class="dangerButton" data-template-action="remove-button">刪除</button></div></div>`; }
+function collapsedTemplatePages(){return [...document.querySelectorAll("#templatePages .templatePage.collapsed")].map(page=>Number(page.dataset.pageIndex))}
+function renderTemplateDirectory() {
+  const directory=$("#templateGroupDirectory");
+  if(!directory)return;
+  const query=templateDirectoryQuery.trim().toLowerCase();
+  const filtered=checkinTemplates.filter(item=>String(item.altText||"").toLowerCase().includes(query));
+  const totalPages=Math.max(1,Math.ceil(filtered.length/templateDirectoryPageSize));
+  templateDirectoryPage=Math.min(templateDirectoryPage,totalPages);
+  const start=(templateDirectoryPage-1)*templateDirectoryPageSize;
+  const visible=filtered.slice(start,start+templateDirectoryPageSize);
+  const savedCount=checkinTemplates.filter(item=>!String(item.id||"").startsWith("draft_")).length;
+  const count=$("#templateDirectoryCount"),page=$("#templateDirectoryPage"),prev=$("#templateDirectoryPrev"),next=$("#templateDirectoryNext");
+  if(count)count.textContent=`共 ${filtered.length} 組活動`;
+  if(page)page.textContent=`第 ${templateDirectoryPage} / ${totalPages} 頁`;
+  if(prev)prev.disabled=templateDirectoryPage<=1;
+  if(next)next.disabled=templateDirectoryPage>=totalPages;
+  directory.innerHTML=visible.length?visible.map((item,index)=>{
+    const saved=!String(item.id||"").startsWith("draft_");
+    const isActive=item.active!==false;
+    const status=isActive?"啟用":"停用";
+    const created=saved?"已儲存":"草稿";
+    return `<tr class="${item.id===activeCheckinTemplateId?"active":""}" data-template-id="${esc(item.id)}">
+      <td><input value="${esc(item.altText || `簽到活動 ${index+1}`)}" aria-label="標籤名稱" /></td>
+      <td><button type="button" class="templateDirStatusToggle ${isActive?"is-active":"is-inactive"}" data-template-directory-action="toggle" role="switch" aria-checked="${isActive}" aria-label="${esc(item.altText)}目前${status}，點擊改為${isActive?"停用":"啟用"}" title="點擊改為${isActive?"停用":"啟用"}"><span aria-hidden="true"></span><b>${status}</b></button></td>
+      <td>${Array.isArray(item.pages)?item.pages.length:0} 頁</td>
+      <td><span class="${saved?"":"templateDirDraft"}">${created}</span></td>
+      <td><div class="checkinDirectoryActions">
+        <button type="button" class="templateDirEdit" data-template-directory-action="edit">${item.id===activeCheckinTemplateId?"編輯中":"編輯"}</button>
+        <button type="button" class="templateDirRename" data-template-directory-action="rename">改名</button>
+        ${saved?`<button type="button" class="templateDirDelete" data-template-directory-action="delete" ${savedCount<=1?"disabled":""}>刪除</button>`:""}
+      </div></td>
+    </tr>`;
+  }).join(""):`<tr><td colspan="5" class="crm-empty">找不到符合的標籤活動</td></tr>`;
+}
+function renderCheckinTemplate(template, collapsedPages=null) {
+  const t=normalizeTemplate(template);
+  const collapsed = Array.isArray(collapsedPages) ? collapsedPages : t.pages.map((_, index) => index);
+  checkinTemplateDraft=t; activeCheckinTemplateId=t.id;
+  $("#templateActive").checked=t.active; $("#templateEntryUrl").value=dailyEntryUrl();
+  $("#templateAltText").value=t.altText; $("#templateRotationMode").value=t.rotationMode;
+  $("#templatePages").innerHTML=t.pages.map((page,index)=>pageHtml(page,index,collapsed.includes(index))).join("");
+  const select=$("#templateGroupSelect");
+  if(select)select.innerHTML=checkinTemplates.map((item,index)=>`<option value="${esc(item.id)}" ${item.id===t.id?"selected":""}>${esc(item.altText || `簽到活動 ${index+1}`)}</option>`).join("");
+  renderTemplateDirectory(); renderTemplatePageToggles(); refreshTemplatePreview();
+}
+function collectTemplate() { const pages=[...document.querySelectorAll("#templatePages .templatePage")].map(page=>{const v=k=>String(page.querySelector(`[data-field="${k}"]`)?.value||"").trim(),mediaType=v("mediaType")==="video"?"video":"image";return {id:v("id")||`page_${crypto.randomUUID()}`,mediaType,mediaAssetId:v("mediaAssetId"),mediaName:v("mediaName"),imageUrl:v("imageUrl"),videoUrl:v("videoUrl"),posterUrl:v("posterUrl"),imageLink:v("imageLink"),bubbleSize:validSize(v("bubbleSize")),imageAspectRatio:validRatio(v("imageAspectRatio")),imageAspectMode:validMode(v("imageAspectMode")),requiredWatchSeconds:Math.max(0,Number(v("requiredWatchSeconds"))||3),requiredCompletionRatio:mediaType==="video"?Math.max(0,Math.min(1,Number(v("requiredCompletionPercent"))/100||.8)):0,buttons:[...page.querySelectorAll(".templateButton")].map(button=>{const b=k=>String(button.querySelector(`[data-field="${k}"]`)?.value||"").trim();return {label:b("label")||"按鈕",type:"uri",text:"",uri:b("uri"),color:b("color")}}).filter(b=>b.label&&b.uri)};});return {id:activeCheckinTemplateId,campaignId:checkinTemplateDraft?.campaignId||"",active:$("#templateActive").checked,entryUrl:$("#templateEntryUrl").value.trim(),altText:$("#templateAltText").value.trim()||"今日簽到",rotationMode:validRotation($("#templateRotationMode").value),pages}; }
+function refreshTemplatePreview(){ const t=collectTemplate(); const view=t.pages.length?t:checkinTemplateDraft||defaultTemplate(); const widths={nano:"48%",micro:"56%",deca:"64%",hecto:"72%",kilo:"82%",mega:"92%",giga:"100%"}; $("#templatePreview").textContent=JSON.stringify(view.pages,null,2); $("#templateVisualPreview").innerHTML=view.pages.map((p,i)=>{const ratio=validRatio(p.imageAspectRatio).replace(":"," / ");const mode=validMode(p.imageAspectMode)==="fit"?"contain":"cover";const buttons=p.buttons.map(b=>`<div class="templatePhoneButton" style="background:${esc(/^#[0-9a-f]{6}$/i.test(b.color)?b.color:"#06C755")}">${esc(b.label)}</div>`).join("");const media=p.mediaType==="video"?(p.videoUrl?`<video src="${esc(p.videoUrl)}" poster="${esc(p.posterUrl)}" controls muted playsinline style="object-fit:${mode}"></video>`:`<span>從影片庫選擇影片</span>`):(p.imageUrl?`<img src="${esc(p.imageUrl)}" style="object-fit:${mode}" alt="第 ${i+1} 頁圖片">`:`<span>上傳第 ${i+1} 頁圖片</span>`);return `<div class="templatePhone" style="--template-bubble-width:${widths[validSize(p.bubbleSize)]};--template-image-ratio:${esc(ratio)}"><div class="templatePhoneHead"><span>第 ${i+1} 頁</span><span>${p.mediaType==="video"?"影片":"圖片"}</span></div><div class="templatePhoneImage">${media}</div><div class="templatePhoneFooter"><small>需觀看至少 ${Number(p.requiredWatchSeconds||3)} 秒${p.mediaType==="video"?`，完成 ${Math.round(p.requiredCompletionRatio*100)}%`:""}。</small><div class="templatePhoneActions"><div class="templatePhoneButton">開始<br>觀看</div><div class="templatePhoneButton templateDetail">詳細<br>說明</div></div>${buttons}</div></div>`;}).join(""); }
+function templateStatus(message, ok){const a=$("#templateStatus"),b=$("#templateInlineStatus");for(const x of [a,b]){x.textContent=message||"";x.className=`${x===a?"templateStatus":"templateInlineStatus"} ${ok?"ok":"bad"}`}}
+async function loadCheckinTemplate(){try{const data=await api("/v1/admin/checkin-template");checkinTemplates=(data.templates||[]).map(normalizeTemplate);renderCheckinTemplate(checkinTemplates.find(item=>item.id===activeCheckinTemplateId)||data.template||checkinTemplates[0]||defaultTemplate())}catch(error){templateStatus(error.message,false)}}
+async function saveCheckinTemplate(){const t=collectTemplate(),collapsed=collapsedTemplatePages();if(!t.altText.trim())return templateStatus("請輸入標籤名稱。",false);if(t.active&&(!t.pages.length||t.pages.some(p=>p.mediaType==="video"?!p.mediaAssetId:!p.imageUrl)))return templateStatus("啟用活動前，請為每一頁上傳圖片或從影片庫選擇影片。",false);if(!t.active&&t.pages.some(p=>p.mediaType==="video"&&p.mediaAssetId)&&!confirm("停用活動後，沒有被其他活動使用的影片會永久刪除。確定停用？"))return;const button=$("#templateSave");button.disabled=true;button.textContent="儲存中...";try{const data=await api("/v1/admin/checkin-template",t);checkinTemplates=(data.templates||[]).map(normalizeTemplate);renderCheckinTemplate(data.template||t,collapsed);templateStatus("已儲存簽到活動；未使用的影片已自動清理。",true);await loadVideoLibrary()}catch(error){templateStatus(error.message,false)}finally{button.disabled=false;button.textContent="儲存模板"}}
+async function optimizeTemplateImage(file){const target=900*1024;if(file.size<=target)return file;if(!globalThis.createImageBitmap)throw new Error("此瀏覽器無法自動壓縮圖片");const source=await createImageBitmap(file);try{let scale=Math.min(1,1200/Math.max(source.width,source.height)),best=null;for(let pass=0;pass<4;pass+=1){const width=Math.max(1,Math.round(source.width*scale)),height=Math.max(1,Math.round(source.height*scale)),canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;canvas.getContext("2d").drawImage(source,0,0,width,height);for(const quality of [.86,.76,.66,.56]){const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",quality));if(!blob)continue;best=blob;if(blob.size<=target)return new File([blob],`${file.name.replace(/\.[^.]+$/,"")||"carousel"}.webp`,{type:"image/webp"})}scale*=.72}if(!best||best.size>1024*1024)throw new Error("圖片壓縮後仍超過 1MB，請使用較小圖片");return new File([best],`${file.name.replace(/\.[^.]+$/,"")||"carousel"}.webp`,{type:"image/webp"})}finally{source.close?.()}}
+async function uploadTemplateImage(input){const original=input.files?.[0],page=input.closest(".templatePage"),field=page?.querySelector('[data-field="imageUrl"]'),status=page?.querySelector(".templateImageStatus");if(!original||!field)return;try{status.textContent=original.size>900*1024?"圖片壓縮中...":"圖片上傳中...";const file=await optimizeTemplateImage(original);field.value=URL.createObjectURL(file);refreshTemplatePreview();const form=new FormData();form.append("image",file,file.name);status.textContent=`上傳中（${Math.round(original.size/1024)} KB → ${Math.round(file.size/1024)} KB）...`;const res=await fetch("/v1/admin/checkin-template/upload-image",{method:"POST",headers:{authorization:`Bearer ${token}`},body:form});const json=await res.json();if(!res.ok)throw new Error(json.error||"圖片上傳失敗");field.value=json.url;status.textContent=`已上傳：${Math.round(original.size/1024)} KB → ${Math.round(json.size/1024)} KB`;refreshTemplatePreview()}catch(error){status.textContent=`上傳失敗：${error.message||"請改用 JPG、PNG 或 WebP 圖片"}`}}
+let videoLibraryAssets=[];
+let videoLibraryTargetPage=null;
+const mediaBytes=value=>{const bytes=Number(value)||0;return bytes>=1024*1024?`${(bytes/1024/1024).toFixed(1)} MB`:`${Math.ceil(bytes/1024)} KB`};
+async function loadVideoLibrary(){
+  const list=$("#videoLibraryList");if(!list)return;
+  list.innerHTML='<p class="muted">影片庫載入中…</p>';
+  try{const data=await api("/v1/admin/media-assets");videoLibraryAssets=data.assets||[];renderVideoLibrary()}
+  catch(error){list.innerHTML=`<p class="danger">${esc(error.message)}</p>`}
+}
+function renderVideoLibrary(){
+  const list=$("#videoLibraryList");if(!list)return;
+  list.innerHTML=videoLibraryAssets.length?videoLibraryAssets.map(asset=>`<article data-video-asset="${esc(asset.id)}">${asset.posterUrl?`<img src="${esc(asset.posterUrl)}" alt="">`:'<div class="video-library-placeholder">▶</div>'}<div><strong>${esc(asset.name)}</strong><p>${mediaBytes(asset.sizeBytes)} · ${Math.round(asset.durationSeconds||0)} 秒 · 使用中 ${Number(asset.referenceCount||0)} 頁</p></div><div class="video-library-actions"><button type="button" data-video-action="preview">預覽</button>${videoLibraryTargetPage!==null?'<button type="button" class="choose" data-video-action="choose">導入頁面</button>':''}<button type="button" class="delete" data-video-action="delete" ${Number(asset.referenceCount||0)>0?'disabled title="仍被活動使用"':''}>永久刪除</button></div></article>`).join(""):'<p class="crm-empty">影片庫目前沒有影片。</p>';
+}
+async function openVideoLibrary(pageIndex=null){videoLibraryTargetPage=Number.isInteger(pageIndex)?pageIndex:null;$("#videoLibraryModal").hidden=false;document.body.classList.add("video-library-open");await loadVideoLibrary()}
+function closeVideoLibrary(){$("#videoLibraryModal").hidden=true;document.body.classList.remove("video-library-open");videoLibraryTargetPage=null}
+async function inspectVideoFile(file){
+  const url=URL.createObjectURL(file),video=document.createElement("video");video.preload="metadata";video.muted=true;video.playsInline=true;video.src=url;
+  try{await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(new Error("無法讀取影片，請確認為可播放的 MP4"))});const duration=Number(video.duration)||0;video.currentTime=Math.min(Math.max(.1,duration*.15),Math.max(.1,duration-.1));await new Promise(resolve=>{video.onseeked=resolve;setTimeout(resolve,1200)});const canvas=document.createElement("canvas"),scale=Math.min(1,900/(video.videoWidth||900));canvas.width=Math.max(1,Math.round((video.videoWidth||900)*scale));canvas.height=Math.max(1,Math.round((video.videoHeight||506)*scale));canvas.getContext("2d").drawImage(video,0,0,canvas.width,canvas.height);const poster=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",.8));return {duration,poster}}
+  finally{URL.revokeObjectURL(url)}
+}
+function xhrVideoUpload(file,duration){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open("PUT","/v1/admin/media-assets/video");xhr.setRequestHeader("authorization",`Bearer ${token}`);xhr.setRequestHeader("content-type","video/mp4");xhr.setRequestHeader("x-file-name",encodeURIComponent(file.name));xhr.setRequestHeader("x-duration-seconds",String(duration||0));xhr.upload.onprogress=event=>{if(!event.lengthComputable)return;const percent=Math.round(event.loaded/event.total*100);$("#videoUploadProgressBar").style.width=`${percent}%`;$("#videoUploadStatus").textContent=`影片上傳中 ${percent}%`};xhr.onerror=()=>reject(new Error("影片上傳連線失敗"));xhr.onload=()=>{let data={};try{data=JSON.parse(xhr.responseText||"{}")}catch{}if(xhr.status<200||xhr.status>=300)return reject(new Error(data.error||"影片上傳失敗"));resolve(data.asset)};xhr.send(file)})}
+async function uploadVideoLibrary(button){
+  const file=$("#videoLibraryFile").files?.[0];if(!file)return showStatus("請先選擇 MP4 影片","error");if(file.type!=="video/mp4"&&!file.name.toLowerCase().endsWith(".mp4"))return showStatus("影片僅支援 MP4","error");if(file.size>80*1024*1024)return showStatus("影片不可超過 80MB","error");
+  try{await withButtonFeedback(button,async()=>{$("#videoUploadProgressBar").style.width="2%";$("#videoUploadStatus").textContent="讀取影片與產生封面中…";const info=await inspectVideoFile(file);let asset=await xhrVideoUpload(file,info.duration);if(info.poster){$("#videoUploadStatus").textContent="封面上傳中…";const res=await fetch(`/v1/admin/media-assets/${encodeURIComponent(asset.id)}/poster`,{method:"PUT",headers:{authorization:`Bearer ${token}`,"content-type":info.poster.type},body:info.poster});const data=await res.json();if(res.ok)asset=data.asset}$("#videoUploadProgressBar").style.width="100%";$("#videoUploadStatus").textContent="影片已加入影片庫";$("#videoLibraryFile").value="";await loadVideoLibrary();if(videoLibraryTargetPage!==null){const uploaded=videoLibraryAssets.find(item=>item.id===asset.id)||asset;chooseVideoAsset(uploaded)}},{busy:"上傳處理中…",success:"上傳完成"})}catch(error){$("#videoUploadStatus").textContent=error.message;showStatus(error.message,"error")}
+}
+function chooseVideoAsset(asset){if(videoLibraryTargetPage===null)return;const template=collectTemplate(),page=template.pages[videoLibraryTargetPage];if(!page)return;page.mediaType="video";page.mediaAssetId=asset.id;page.mediaName=asset.name;page.videoUrl=asset.videoUrl;page.posterUrl=asset.posterUrl;renderCheckinTemplate(template,collapsedTemplatePages().filter(index=>index!==videoLibraryTargetPage));closeVideoLibrary();templateStatus(`已導入影片：${asset.name}`,true)}
+async function deleteVideoAsset(asset,button){if(Number(asset.referenceCount||0)>0)return showStatus("影片仍被活動使用，無法刪除","error");if(!confirm(`確定永久刪除「${asset.name}」？此動作無法復原。`))return;try{await withButtonFeedback(button,async()=>{await api(`/v1/admin/media-assets/${encodeURIComponent(asset.id)}`,undefined,"DELETE");await loadVideoLibrary();showStatus("影片已永久刪除並釋放空間")},{busy:"刪除中…",success:"已刪除"})}catch(error){showStatus(error.message,"error")}}
+function renderTemplatePageToggles(){document.querySelectorAll(".templatePageHead").forEach(head=>{if(head.querySelector("[data-template-toggle]"))return;const toggle=document.createElement("button");toggle.type="button";toggle.className="secondaryButton template-toggle";toggle.dataset.templateToggle="1";toggle.textContent=head.closest(".templatePage")?.classList.contains("collapsed")?"展開設定":"收合設定";head.insertBefore(toggle,head.querySelector(".dangerButton"));toggle.onclick=()=>{const page=head.closest(".templatePage"),collapsed=page.classList.toggle("collapsed");toggle.textContent=collapsed?"展開設定":"收合設定"}})}
+async function renameCheckinGroup(id, name) {
+  const template=checkinTemplates.find(item=>item.id===id);
+  const label=String(name||"").trim();
+  if(!template||!label)return templateStatus("請輸入標籤名稱。",false);
+  if(String(id).startsWith("draft_")){
+    template.altText=label; renderCheckinTemplate(template,collapsedTemplatePages());
+    return templateStatus("草稿名稱已更新；請完成素材後儲存。",true);
+  }
+  try{
+    const data=await api("/v1/admin/checkin-template",{...template,altText:label});
+    checkinTemplates=(data.templates||[]).map(normalizeTemplate);
+    renderCheckinTemplate(checkinTemplates.find(item=>item.id===id)||data.template||checkinTemplates[0]);
+    templateStatus("標籤名稱已更新。",true);
+  }catch(error){templateStatus(error.message,false)}
+}
+async function toggleCheckinGroupStatus(id, button) {
+  const template=checkinTemplates.find(item=>item.id===id);
+  if(!template||String(id).startsWith("draft_"))return showStatus("請先儲存草稿，再設定活動狀態。","error");
+  const nextActive=template.active===false;
+  if(nextActive&&(!template.pages.length||template.pages.some(page=>page.mediaType==="video"?!page.mediaAssetId:!page.imageUrl)))return showStatus("啟用活動前，請先補齊每一頁的圖片或影片。","error");
+  if(!nextActive&&template.pages.some(page=>page.mediaType==="video"&&page.mediaAssetId)&&!confirm("停用活動後，沒有被其他活動使用的影片會永久刪除。確定停用？"))return;
+  button.disabled=true;
+  const original=button.innerHTML;
+  button.textContent="更新中…";
+  try{
+    const data=await api("/v1/admin/checkin-template",{...template,active:nextActive});
+    checkinTemplates=(data.templates||[]).map(normalizeTemplate);
+    const updated=checkinTemplates.find(item=>item.id===id)||normalizeTemplate(data.template||template);
+    if(activeCheckinTemplateId===id)renderCheckinTemplate(updated,collapsedTemplatePages());
+    else renderTemplateDirectory();
+    const message=`「${updated.altText}」已${nextActive?"啟用":"停用"}。`;
+    templateStatus(message,true);
+    showStatus(message);
+    await loadVideoLibrary();
+  }catch(error){
+    button.disabled=false;
+    button.innerHTML=original;
+    templateStatus(error.message,false);
+    showStatus(error.message,"error");
+  }
+}
+async function deleteCheckinGroup(id) {
+  const saved=checkinTemplates.filter(item=>!String(item.id||"").startsWith("draft_"));
+  if(saved.length<=1)return templateStatus("至少要保留一組簽到活動。",false);
+  const target=checkinTemplates.find(item=>item.id===id);
+  if(!target||String(id).startsWith("draft_"))return;
+  if(!confirm(`確定刪除「${target.altText}」及其所有頁面嗎？此動作無法復原。`))return;
+  try{
+    const data=await api(`/v1/admin/checkin-template/${encodeURIComponent(id)}`,undefined,"DELETE");
+    checkinTemplates=(data.templates||[]).map(normalizeTemplate);
+    renderCheckinTemplate(checkinTemplates[0]||defaultTemplate());
+    templateStatus("標籤及其素材已刪除。",true);
+  }catch(error){templateStatus(error.message,false)}
+}
+const checkinDesigner=$(".templateDesigner");
+const checkinDirectory=$(".checkinDirectoryPanel");
+const checkinDrawer=$("#templateEditorDrawer");
+const checkinBackdrop=$("#templateDrawerBackdrop");
+if(checkinDesigner&&checkinDirectory&&checkinDrawer)checkinDesigner.insertBefore(checkinDirectory,checkinDrawer);
+function openCheckinEditor(template){
+  if(template)renderCheckinTemplate(template,[]);
+  const label=template?.altText||checkinTemplateDraft?.altText||"簽到活動";
+  $("#templateDrawerTitle").textContent=`編輯：${label}`;
+  checkinDesigner?.classList.add("editor-open");
+  document.body.classList.add("template-drawer-open");
+}
+function closeCheckinEditor(){
+  checkinDesigner?.classList.remove("editor-open");
+  document.body.classList.remove("template-drawer-open");
+}
+$("#templateDrawerClose")?.addEventListener("click",closeCheckinEditor);
+checkinBackdrop?.addEventListener("click",closeCheckinEditor);
+$("#templateDirectorySearch")?.addEventListener("input",event=>{templateDirectoryQuery=event.target.value||"";templateDirectoryPage=1;renderTemplateDirectory()});
+$("#templateDirectoryPrev")?.addEventListener("click",()=>{templateDirectoryPage=Math.max(1,templateDirectoryPage-1);renderTemplateDirectory()});
+$("#templateDirectoryNext")?.addEventListener("click",()=>{templateDirectoryPage+=1;renderTemplateDirectory()});
+$("#templateGroupDirectory").addEventListener("click",async event=>{
+  const actionButton=event.target.closest("[data-template-directory-action]");
+  const action=actionButton?.dataset.templateDirectoryAction;
+  if(!action)return;
+  const row=event.target.closest("[data-template-id]"),id=row?.dataset.templateId;
+  const template=checkinTemplates.find(item=>item.id===id);
+  if(!template)return;
+  if(action==="edit"){openCheckinEditor(template);return;}
+  if(action==="toggle")return toggleCheckinGroupStatus(id,actionButton);
+  if(action==="rename")return withButtonFeedback(actionButton,()=>renameCheckinGroup(id,row.querySelector("input")?.value),{busy:"儲存中…",success:"已儲存"});
+  if(action==="delete")return withButtonFeedback(actionButton,()=>deleteCheckinGroup(id),{busy:"刪除中…",success:"已刪除"});
+});
+$("#templateGroupSelect")?.addEventListener("change",(event)=>{const next=checkinTemplates.find(item=>item.id===event.target.value);if(next)renderCheckinTemplate(next)});
+$("#templateNewGroup").addEventListener("click",()=>{const t=defaultTemplate();t.id=`draft_${Date.now()}`;t.altText=`簽到活動 ${checkinTemplates.length+1}`;checkinTemplates=[...checkinTemplates,t];openCheckinEditor(t);templateStatus("已建立新的簽到活動，請輸入標籤名稱並設定素材後儲存。",true)});
+$("#templateAddPage").addEventListener("click",()=>{const t=collectTemplate(),collapsed=collapsedTemplatePages();t.pages.push(defaultPage());renderCheckinTemplate(t,collapsed);templateStatus(`已新增第 ${t.pages.length} 頁，請選擇圖片或影片。`,true)});
+$("#templateSave").addEventListener("click",saveCheckinTemplate);
+$("#templatePages").addEventListener("input",refreshTemplatePreview);
+$("#templatePages").addEventListener("change",async e=>{if(e.target.matches('[data-field="colorPicker"]'))e.target.closest(".templateColorRow").querySelector('[data-field="color"]').value=e.target.value.toUpperCase();if(e.target.matches('[data-field="imageFile"]'))await uploadTemplateImage(e.target);if(e.target.matches('[data-field="mediaType"]')){const t=collectTemplate(),i=Number(e.target.closest(".templatePage")?.dataset.pageIndex),collapsed=collapsedTemplatePages();t.pages[i].mediaType=e.target.value==="video"?"video":"image";renderCheckinTemplate(t,collapsed.filter(index=>index!==i));return}refreshTemplatePreview()});
+$("#templatePages").addEventListener("click",e=>{const button=e.target.closest("[data-template-action]");if(!button)return;const t=collectTemplate(),page=button.closest(".templatePage"),i=Number(page?.dataset.pageIndex),collapsed=collapsedTemplatePages(),action=button.dataset.templateAction;if(action==="select-video"){openVideoLibrary(i);return}if(action==="add-button")t.pages[i].buttons.push(defaultButton());if(action==="remove-page"&&i>0){t.pages.splice(i,1);renderCheckinTemplate(t,collapsed.filter(x=>x!==i).map(x=>x>i?x-1:x));return}if(action==="remove-button"){const j=Number(button.closest(".templateButton")?.dataset.buttonIndex);if(j>=0)t.pages[i].buttons.splice(j,1)}renderCheckinTemplate(t,collapsed)});
+["#templateEntryUrl","#templateAltText","#templateRotationMode","#templateActive"].forEach(id=>$(id).addEventListener("input",refreshTemplatePreview));
+$("#openVideoLibrary")?.addEventListener("click",()=>openVideoLibrary());
+$("#uploadVideoLibrary")?.addEventListener("click",event=>uploadVideoLibrary(event.currentTarget));
+document.querySelectorAll("[data-close-video-library]").forEach(button=>button.addEventListener("click",closeVideoLibrary));
+$("#videoLibraryList")?.addEventListener("click",event=>{const button=event.target.closest("[data-video-action]"),row=event.target.closest("[data-video-asset]");if(!button||!row)return;const asset=videoLibraryAssets.find(item=>item.id===row.dataset.videoAsset);if(!asset)return;if(button.dataset.videoAction==="choose")chooseVideoAsset(asset);if(button.dataset.videoAction==="delete")deleteVideoAsset(asset,button);if(button.dataset.videoAction==="preview")window.open(asset.videoUrl,"_blank","noopener")});
+$("#copyTemplateEntry").addEventListener("click", (event) => withButtonFeedback(event.currentTarget, async () => { await navigator.clipboard.writeText(dailyEntryUrl()); templateStatus("活動入口網址已複製。", true); }, {busy:"複製中…",success:"已複製"}));

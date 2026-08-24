@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>A-KAFFIT TEAM｜營運管理中心</title>
+    <link rel="stylesheet" href="/admin.css?v=20260813-1" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="/admin/">A-KAFFIT TEAM<span>營運管理中心</span></a>
+        <div class="admin-identity" id="adminIdentity" hidden>
+          <img id="adminAvatar" alt="LINE 頭貼" />
+          <div><strong id="adminName"></strong><span>目前登入管理員</span></div>
+        </div>
+        <p class="side-label">營運中心</p>
+        <nav class="side-nav">
+          <button class="nav-item active" data-page="dashboard">
+            <span>◔</span> 營運統計
+          </button>
+          <button class="nav-item" data-page="members">
+            <span>♟</span> 會員 CRM
+          </button>
+          <button class="nav-item" data-page="cards">
+            <span>▦</span> 全站名片庫
+          </button>
+          <button class="nav-item" data-page="points">
+            <span>◉</span> 點數規則
+          </button>
+          <button class="nav-item" data-page="courses" hidden>
+            <span>▣</span> 課程／活動
+          </button>
+          <button class="nav-item" data-page="carousel">
+            <span>▤</span> 簽到內容管理
+          </button>
+          <button class="nav-item" data-page="richmenu">
+            <span>▱</span> 圖文選單
+          </button>
+        </nav>
+        <p class="side-label">系統</p>
+        <nav class="side-nav">
+          <button class="nav-item" data-page="settings">
+            <span>⚙</span> 系統設定
+          </button>
+        </nav>
+        <button class="logout" id="logout">安全登出</button>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">營運統計中心</h1>
+            <p id="pageHint">A-KAFFIT 會員、點數、簽到與內容即時概況</p>
+          </div>
+          <div class="top-actions">
+            <span class="health"><i></i> 系統正常</span
+            ><button class="outline" id="refresh">↻ 重新同步</button
+            ><a class="outline" href="/" target="_blank">▣ 會員前台</a>
+          </div>
+        </header>
+        <section id="status" class="status hidden"></section>
+
+        <section class="page active" data-content="dashboard">
+          <div class="metrics admin-visible-grid">
+            <article>
+              <p>系統會員</p>
+              <strong id="metricMembers">–</strong
+              ><small>LINE Login 已建立帳戶</small>
+            </article>
+            <article>
+              <p>累計發出點數</p>
+              <strong id="metricPoints">–</strong
+              ><small>依已啟用規則入帳</small>
+            </article>
+            <article hidden>
+              <p>上架課程</p>
+              <strong id="metricCourses">–</strong
+              ><small>公開中的課程／活動</small>
+            </article>
+            <article>
+              <p>每日簽到</p>
+              <strong id="metricCheckins">–</strong
+              ><small>累計有效輪播簽到</small>
+            </article>
+          </div>
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>營運快速入口</h2>
+                <p>管理會員、名片與點數規則。</p>
+              </div>
+            </div>
+            <div class="quick-grid admin-visible-grid">
+              <button data-go="points">
+                <b>1</b><span>設定贈點規則</span
+                ><small>註冊、分享、每日簽到</small></button
+              ><button data-go="courses" hidden>
+                <b>2</b><span>建立課程活動</span
+                ><small>現場或線上簽到</small></button
+              ><button data-go="carousel">
+                <b>3</b><span>新增簽到內容</span
+                ><small>圖片、影片、觀看門檻與贈點</small></button
+              ><a href="/" target="_blank"
+                ><b>↗</b><span>檢視會員前台</span
+                ><small>使用 LIFF 驗收流程</small></a
+              >
+            </div>
+          </section>
+        </section>
+
+        <section class="page" data-content="members">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>會員 CRM</h2>
+                <p>以會員為中心查看資料、推薦關係、點數與活動紀錄。</p>
+              </div>
+              <button class="secondary" type="button" id="refreshMembers">重新整理</button>
+            </div>
+            <div class="crm-toolbar">
+              <label class="crm-search">⌕<input id="memberSearch" placeholder="搜尋姓名、電話、公司／系統會員編號、LINE ID…" /></label>
+              <span>會員數：<strong id="memberTotal">–</strong></span>
+            </div>
+            <div class="crm-table-wrap"><table class="crm-table"><thead><tr><th>會員</th><th>公司會員編號</th><th>系統會員編號</th><th>推薦人</th><th>點數錢包</th><th>註冊狀態</th><th>建立時間</th><th></th></tr></thead><tbody id="memberList"></tbody></table></div>
+          </section>
+          <section id="memberDetail" class="panel crm-detail hidden"></section>
+        </section>
+
+        <section class="page" data-content="cards">
+          <section class="panel card-library-panel">
+            <div class="panel-head">
+              <div><h2>全站名片庫</h2><p>集中查看會員數位名片，以及各會員掃描、收藏的客戶名片。</p></div>
+              <div class="card-library-actions"><button class="secondary" type="button" id="exportAdminCards">匯出備份</button><button class="secondary" type="button" id="refreshAdminCards">重新整理</button></div>
+            </div>
+            <div class="card-library-metrics"><article><small>全部名片</small><strong id="adminCardTotal">–</strong></article><article><small>會員名片</small><strong id="adminPersonalCardTotal">–</strong></article><article><small>客戶收藏</small><strong id="adminCollectionCardTotal">–</strong></article><article><small>已綁會員</small><strong id="adminBoundCardTotal">–</strong></article></div>
+            <div class="card-library-toolbar">
+              <label class="crm-search">⌕<input id="adminCardSearch" placeholder="搜尋姓名、電話、公司、職稱、備註或五大標籤…"></label>
+              <select id="adminCardType"><option value="all">全部來源</option><option value="personal">會員數位名片</option><option value="collection">客戶收藏名片</option></select>
+              <select id="adminCardOwner"><option value="all">全部歸屬會員</option></select>
+              <span>顯示：<strong id="adminCardFilteredTotal">–</strong></span>
+            </div>
+            <div class="crm-table-wrap"><table class="crm-table card-library-table"><thead><tr><th>姓名</th><th>公司與職稱</th><th>聯絡方式</th><th>歸屬會員</th><th>來源</th><th>綁定狀態</th><th>五大標籤</th><th>查看</th><th>刪除</th></tr></thead><tbody id="adminCardList"><tr><td colspan="9" class="crm-empty">請載入全站名片庫</td></tr></tbody></table></div>
+          </section>
+          <section id="adminCardDetail" class="panel card-library-detail hidden"></section>
+        </section>
+
+        <section class="page" data-content="points">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>K點扣點／贈點規則</h2>
+                <p>紅色為扣點規則，綠色為贈點規則；輸入正整數，系統會依交易方向執行扣除或贈送。</p>
+              </div>
+              <button class="secondary" type="button" id="refreshRules">重新整理</button>
+            </div>
+            <div id="ruleList" class="rule-list"></div>
+          </section>
+          <section class="notice-card">
+            <b>規則說明</b>
+            <span>完整、流日、配對、職場、愛情報告皆可分別設定扣點；收藏名片成功為贈點。已完成或已購買的交易不會因調整規則而重複扣贈點。</span>
+          </section>
+        </section>
+
+        <section class="page" data-content="courses">
+          <nav class="course-module-tabs" aria-label="課程與活動檢視">
+            <button class="active" type="button" data-go="courses">活動清單</button>
+            <button type="button" data-go="calendar">行事曆</button>
+          </nav>
+          <section class="panel form-panel">
+            <div class="panel-head">
+              <div>
+                <h2>建立課程／活動</h2>
+                <p>建立後可再新增現場或線上場次與簽到條件。</p>
+              </div>
+            </div>
+            <form id="courseForm" class="form-grid">
+              <label class="wide"
+                >課程名稱<input
+                  id="courseTitle"
+                  placeholder="例如 夏季會員講座"
+                  required /></label
+              ><label class="wide"
+                >課程說明<input id="courseDesc" placeholder="簡短說明" /></label
+              ><label
+                >公開狀態<select id="courseStatus">
+                  <option value="draft">草稿</option>
+                  <option value="published">公開</option>
+                </select></label
+              ><button class="primary" type="submit">建立課程</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div><h2>既有課程／活動</h2><p>查看已建立的課程及公開狀態。</p></div><button class="secondary" id="refreshCourses" type="button">重新整理</button></div>
+            <div id="courseList" class="course-list"></div>
+          </section>
+        </section>
+
+        <section class="page" data-content="calendar">
+          <nav class="course-module-tabs" aria-label="課程與活動檢視">
+            <button type="button" data-go="courses">活動清單</button>
+            <button class="active" type="button" data-go="calendar">行事曆</button>
+          </nav>
+          <section class="panel calendar-panel">
+            <div class="panel-head">
+              <div><h2>課程行事曆</h2><p>管理活動日期、時間窗、固定 QR 報到、會員報名與點數。</p></div>
+              <div class="calendar-actions"><button class="outline" id="calendarNew" type="button">複製活動</button><button class="outline" id="calendarRefresh" type="button">重新同步</button></div>
+            </div>
+            <div class="calendar-editor" id="calendarEditor" hidden>
+              <div class="calendar-editor-head"><strong id="calendarEditorTitle">新增活動</strong><button class="outline" id="calendarClose" type="button">收合</button></div>
+              <input id="calendarEventId" type="hidden">
+              <div class="calendar-form-grid">
+                <label>場次名稱<input id="calendarSessionTitle" placeholder="例如 7 月會員說明會"></label>
+                <label>模式<select id="calendarMode"><option value="physical">現場</option><option value="online">線上</option></select></label>
+                <label>活動日期<input id="calendarEventDate" type="date"></label>
+                <label>開始時間<input id="calendarStartsAt" type="time"></label>
+                <label>結束時間<input id="calendarEndsAt" type="time"></label>
+                <label>報名開始<input id="calendarRegistrationStartsAt" type="time"></label>
+                <label>報名結束／簽到截止<input id="calendarRegistrationEndsAt" type="time"></label>
+                <label>場地名稱<input id="calendarVenueName" placeholder="例如 台北教室"></label>
+                <label>場地地址／線上會議網址<input id="calendarVenueAddress" placeholder="例如：台北市信義區…／線上會議網址"></label>
+                <label>活動封面圖片<input id="calendarCoverImage" type="file" accept="image/jpeg,image/png,image/webp"><small id="calendarCoverStatus">可上傳圖片；系統會自動壓縮後儲存。</small></label>
+                <label>活動圖片網址（上傳後自動填入）<input id="calendarCoverUrl" type="url" placeholder="https://..."></label>
+                <label>線上會議網址<input id="calendarMeetingUrl" type="url" placeholder="https://..."></label>
+                <label>現場簽到碼（修改時留空保留原碼）<input id="calendarCheckinCode" placeholder="現場掃碼或人工簽到使用"></label>
+              </div>
+              <div class="calendar-editor-actions"><button class="primary" id="calendarSave" type="button">儲存活動</button><button class="danger" id="calendarDelete" type="button">取消場次</button></div>
+              <p id="calendarEditStatus" class="muted"></p>
+            </div>
+            <section class="calendar-smart-checkin" aria-label="固定 QR 智慧報到">
+              <h3>固定 QR 智慧報到</h3>
+              <p>現場只需要這一組 QR。會員掃碼後，系統會依目前日曆活動、時間與報名資料判定對應場次並發放課程點數。</p>
+              <div class="calendar-smart-qr"><div id="calendarSmartQrImage"></div><div><strong>固定報到 QR</strong><p id="calendarSmartQrUrl" class="calendar-url"></p><div class="calendar-smart-actions"><a id="calendarTestQr" target="_blank" rel="noopener">測試連結</a><button class="outline" id="calendarCopyQr" type="button">複製連結</button></div></div></div>
+            </section>
+            <div class="calendar-month-head"><button class="outline" id="calendarPrev" type="button">← 上月</button><strong id="calendarMonthTitle"></strong><button class="outline" id="calendarNext" type="button">下月 →</button></div>
+            <div class="calendar-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div id="calendarMonth" class="calendar-month"></div>
+            <div id="calendarList" class="calendar-list"></div>
+          </section>
+        </section>
+
+        <section class="page" data-content="carousel">
+          <div class="template-section-head"><h3>簽到內容管理</h3><div><span>新增圖片或影片，設定觀看門檻與贈點內容</span><button class="template-back" data-go="dashboard">返回主控台</button></div></div>
+          <article class="templateDesigner">
+            <div id="templateDrawerBackdrop" class="templateDrawerBackdrop"></div>
+            <div id="templateEditorDrawer" class="templateDesignerGrid" role="dialog" aria-modal="true" aria-label="簽到活動編輯器">
+              <div class="templateDrawerHead"><strong id="templateDrawerTitle">編輯簽到活動</strong><button id="templateDrawerClose" type="button" aria-label="關閉編輯器">×</button></div>
+              <div class="templateControls">
+                <div class="templateBlock templateTriggerBlock">
+                  <div class="templateBlockHead"><strong>活動入口</strong><span>系統自動產生，提供分享或 QR 碼使用</span></div>
+                  <div class="templateTriggerCompact">
+                    <label>活動網址（系統自動產生）<div class="template-entry"><input id="templateEntryUrl" type="url" readonly /><button id="copyTemplateEntry" type="button">複製網址</button></div></label>
+                    <label>標籤名稱<input id="templateAltText" type="text" placeholder="例如：今日簽到、行政公告、活動名稱" /></label>
+                    <label>發送輪動<select id="templateRotationMode"><option value="random">隨機輪動</option><option value="sequential">順序輪動</option></select></label>
+                    <label class="templateSwitch"><input id="templateActive" type="checkbox" checked /> 啟用輪播活動</label>
+                  </div>
+                </div>
+                <section class="checkinDirectoryPanel" aria-label="簽到贈點活動目錄"><div class="checkinDirectoryHead"><div><h3>簽到贈點活動目錄</h3><p>點擊「活動狀態」即可直接啟用或停用；也可搜尋、分頁、編輯、改名與刪除。</p></div><button id="templateNewGroup" class="importButton" type="button">新增簽到內容</button></div><div class="checkinDirectoryToolbar"><input id="templateDirectorySearch" type="search" placeholder="搜尋標籤名稱…" autocomplete="off" /><span id="templateDirectoryCount"></span></div><div class="checkinDirectoryTableWrap"><table class="checkinDirectoryTable"><thead><tr><th>標籤名稱</th><th>活動狀態（可切換）</th><th>輪播頁數</th><th>建立時間</th><th>操作</th></tr></thead><tbody id="templateGroupDirectory"></tbody></table></div><div class="checkinDirectoryPager"><button id="templateDirectoryPrev" type="button" class="secondaryButton">上一頁</button><span id="templateDirectoryPage"></span><button id="templateDirectoryNext" type="button" class="secondaryButton">下一頁</button></div></section><div class="templateBlock"><div class="templateBlockHead"><strong>頁面設定</strong><div><span id="templateInlineStatus"></span><button id="openVideoLibrary" class="secondaryButton" type="button">影片庫</button><button id="templateAddPage" class="secondaryButton" type="button">新增頁面</button><button id="templateSave" class="importButton" type="button">儲存模板</button></div></div><p class="template-compress-note">圖片請使用 2:3 直式，建議 800 × 1200 px；系統會自動壓縮為 WebP。影片由 R2 影片庫導入，未被活動使用時會自動清除。</p><div id="templatePages" class="templatePages"></div></div>
+                <div id="templateStatus" class="templateStatus"></div>
+              </div>
+              <aside class="templatePreviewPane"><div class="templateBlockHead"><strong>即時預覽</strong><span>2:3 等比預覽｜建議 800 × 1200 px</span></div><div id="templateVisualPreview" class="templateVisualPreview"></div><details class="templateJsonFold"><summary>JSON 預覽</summary><pre id="templatePreview" class="templatePreview"></pre></details></aside>
+            </div>
+          </article>
+        </section>
+
+        <section class="page rich-menu-page" data-content="richmenu">
+          <section class="panel rich-menu-token-panel">
+            <div class="panel-head">
+              <div>
+                <h2>LINE 圖文選單</h2>
+                <p>請輸入 Messaging API 的 Channel Access Token；儲存後由後端代為呼叫 LINE。</p>
+              </div>
+              <span id="richMenuTokenStatus" class="rich-menu-token-status">尚未設定 Token</span>
+            </div>
+            <div class="rich-menu-token-row">
+              <label>Channel Access Token<input id="richMenuToken" type="password" autocomplete="new-password" placeholder="貼上長效 Channel Access Token" /></label>
+              <button id="saveRichMenuToken" class="primary" type="button">儲存並驗證</button>
+              <button id="testRichMenuToken" class="secondary" type="button">測試連線</button>
+            </div>
+            <p class="rich-menu-token-note">Token 會以加密形式儲存在 D1，不會顯示於頁面、瀏覽器儲存空間或 API 回應。</p>
+          </section>
+          <section class="rich-menu-editor-panel">
+            <iframe id="richMenuFrame" src="/rich-menu.html?v=20260719-1" title="LINE 圖文選單編輯器"></iframe>
+          </section>
+        </section>
+
+        <section class="page" data-content="settings">
+          <section class="panel ai-provider-panel" id="aiProviderPanel" hidden>
+            <div class="panel-head">
+              <div>
+                <h2>AI 供應商與用量</h2>
+                <p>Gemini 為主要供應商；失敗時自動改用 OpenAI。系統只記錄 token、延遲與狀態，不保存提示內容或圖片。</p>
+              </div>
+              <button id="refreshAIUsage" class="secondary" type="button">重新整理</button>
+            </div>
+            <div class="ai-provider-grid">
+              <article><small>主要供應商</small><strong>Gemini</strong><span id="geminiKeyStatus" class="api-key-status">讀取中…</span><button id="testGeminiKey" class="secondary" type="button">測試 Gemini</button></article>
+              <article><small>備援供應商</small><strong>OpenAI</strong><span id="aiOpenAIStatus" class="api-key-status">讀取中…</span></article>
+            </div>
+            <div class="ai-usage-summary">
+              <div><small>AI 請求</small><strong id="aiLogicalRequests">0</strong></div>
+              <div><small>Gemini 用量</small><strong id="aiGeminiTokens">0</strong></div>
+              <div><small>OpenAI 用量</small><strong id="aiOpenAITokens">0</strong></div>
+              <div><small>備援次數</small><strong id="aiFallbackAttempts">0</strong></div>
+              <div><small>平均延遲</small><strong id="aiAverageLatency">0 ms</strong></div>
+            </div>
+            <div class="ai-usage-table-wrap"><table class="ai-usage-table"><thead><tr><th>時間</th><th>功能</th><th>供應商</th><th>模型</th><th>狀態</th><th>Token</th><th>延遲</th></tr></thead><tbody id="aiUsageRows"><tr><td colspan="7">尚無資料</td></tr></tbody></table></div>
+            <p class="api-key-note">GEMINI_API_KEY 必須使用 Wrangler Secret 設定，不會顯示或儲存在後台。OpenAI 沿用既有加密設定或 Worker Secret。</p>
+          </section>
+          <section class="panel openai-settings-panel" id="openAISettingsPanel" hidden>
+            <div class="panel-head">
+              <div>
+                <h2>OpenAI API 設定</h2>
+                <p>供名片 AI 掃描辨識使用；只有系統權限管理員可以操作。</p>
+              </div>
+              <span id="openAIKeyStatus" class="api-key-status">讀取中…</span>
+            </div>
+            <div class="api-key-row">
+              <label>OpenAI API Key<input id="openAIKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="貼上 sk- 開頭的 API Key" /></label>
+              <button id="saveOpenAIKey" class="primary" type="button">儲存並驗證</button>
+              <button id="testOpenAIKey" class="secondary" type="button">測試連線</button>
+              <button id="deleteOpenAIKey" class="dangerButton" type="button">刪除後台金鑰</button>
+            </div>
+            <p class="api-key-note">金鑰會在 Worker 端加密後存入 D1；頁面、瀏覽器儲存空間與 API 回應都不會取得完整金鑰。刪除後會自動改用 Worker 環境密鑰（若有設定）。</p>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>系統設定</h2>
+                <p>LINE Login、LIFF 與 D1 已連線。</p>
+              </div>
+            </div>
+            <div class="settings-list">
+              <div><b>會員登入</b><span>LINE Login + LIFF</span></div>
+              <div><b>官方帳號導流</b><span>邀約頁導向加入官方帳號</span></div>
+              <div><b>點數錢包 QR</b><span>短效 Token，60 秒後失效</span></div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <div id="videoLibraryModal" class="video-library-modal" hidden>
+      <div class="video-library-backdrop" data-close-video-library></div>
+      <section class="video-library-sheet" role="dialog" aria-modal="true" aria-labelledby="videoLibraryTitle">
+        <header><div><h2 id="videoLibraryTitle">影片庫</h2><p>上傳一次即可導入多個活動；沒有任何活動使用的影片會自動刪除。</p></div><button type="button" data-close-video-library aria-label="關閉">×</button></header>
+        <div class="video-library-upload"><label>上傳 MP4（80MB 內）<input id="videoLibraryFile" type="file" accept="video/mp4,.mp4" /></label><button id="uploadVideoLibrary" class="primary" type="button">上傳影片</button><div class="video-upload-progress"><i id="videoUploadProgressBar"></i></div><span id="videoUploadStatus"></span></div>
+        <div id="videoLibraryList" class="video-library-list"></div>
+      </section>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script type="module" src="/admin.js?v=20260813-1"></script>
+  </body>
+</html>
