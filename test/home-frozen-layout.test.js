@@ -11,7 +11,10 @@ const homeEnd = app.indexOf("async function legacyHome()", homeStart);
 const home = app.slice(homeStart, homeEnd);
 
 test("home uses a compact member summary, shared task toggle, and social-first viewport", () => {
-  assert.match(home, /class="ak-wordmark">A’kaffit/);
+  assert.match(home, /class="ak-wordmark">VEO商務中心/);
+  assert.match(home, /id="homeDailyPanel" class="ak-daily-panel ak-content-panel"/);
+  assert.match(home, /class="ak-official-import ak-content-panel hidden"/);
+  assert.match(home, /await openHomeDaily\(\);/);
   assert.match(home, /class="ak-task-notice\$\{taskAlert\}" data-home-task-toggle aria-expanded="false" aria-controls="homeTaskDetail"/);
   assert.equal((home.match(/data-home-task-toggle/g) || []).length, 2);
   assert.match(home, /class="ak-member-avatar" data-home-action="profile"[\s\S]*\$\{avatar\(\)\}/);

@@ -385,14 +385,14 @@ async function submitPhoneBirthdayAuth() {
 async function renderLogin() {
   const isLogin = phoneAuthMode === "login";
   const lineReady = Boolean(state.config?.liffId);
-  $("#app").innerHTML = `<section class="ak-register"><div class="ak-register-wordmark">A-KAFFIT TEAM</div><h1>使用 LINE 登入</h1><p>以你的 LINE 身分安全登入；第一次使用會建立會員資料，之後會直接回到原帳號。</p><button class="btn" id="login" ${lineReady ? "" : "disabled"}>使用 LINE 登入</button><div class="ak-auth-mode-note" id="loginStatus">${lineReady ? "將使用 LINE 授權確認身分，不需要另外設定密碼。" : "LINE Login 尚未設定，請使用下方備援登入。"}</div><details class="ak-auth-fallback"><summary>其他登入方式：手機＋生日</summary><div class="ak-auth-tabs" role="tablist" aria-label="會員登入與註冊"><button type="button" role="tab" aria-selected="${isLogin}" class="${isLogin ? "active" : ""}" data-phone-auth-mode="login">會員登入</button><button type="button" role="tab" aria-selected="${!isLogin}" class="${!isLogin ? "active" : ""}" data-phone-auth-mode="register">新會員註冊</button></div><div class="ak-auth-mode-note">${isLogin ? "輸入已註冊的手機與生日密碼。" : "確認尚未註冊後，再建立新的會員資料。"}</div><label>手機<input id="registerPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0912345678" maxlength="20"></label><label>生日密碼（民國年月日）<input id="registerBirthday" type="text" inputmode="numeric" autocomplete="bday" placeholder="例如 591021、390305" pattern="[0-9]{6,7}" maxlength="7"></label><button class="btn alt" id="phoneAuthSubmit">${isLogin ? "登入會員中心" : "建立新會員"}</button><em>${isLogin ? "查無會員時，系統不會自動建立帳號。" : "已註冊的手機與生日不會再次建立帳號。"}</em></details></section>`;
+  $("#app").innerHTML = `<section class="ak-register"><div class="ak-register-wordmark">VEO商務中心</div><h1>使用 LINE 登入</h1><p>以你的 LINE 身分安全登入；第一次使用會建立會員資料，之後會直接回到原帳號。</p><button class="btn" id="login" ${lineReady ? "" : "disabled"}>使用 LINE 登入</button><div class="ak-auth-mode-note" id="loginStatus">${lineReady ? "將使用 LINE 授權確認身分，不需要另外設定密碼。" : "LINE Login 尚未設定，請使用下方備援登入。"}</div><details class="ak-auth-fallback"><summary>其他登入方式：手機＋生日</summary><div class="ak-auth-tabs" role="tablist" aria-label="會員登入與註冊"><button type="button" role="tab" aria-selected="${isLogin}" class="${isLogin ? "active" : ""}" data-phone-auth-mode="login">會員登入</button><button type="button" role="tab" aria-selected="${!isLogin}" class="${!isLogin ? "active" : ""}" data-phone-auth-mode="register">新會員註冊</button></div><div class="ak-auth-mode-note">${isLogin ? "輸入已註冊的手機與生日密碼。" : "確認尚未註冊後，再建立新的會員資料。"}</div><label>手機<input id="registerPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0912345678" maxlength="20"></label><label>生日密碼（民國年月日）<input id="registerBirthday" type="text" inputmode="numeric" autocomplete="bday" placeholder="例如 591021、390305" pattern="[0-9]{6,7}" maxlength="7"></label><button class="btn alt" id="phoneAuthSubmit">${isLogin ? "登入會員中心" : "建立新會員"}</button><em>${isLogin ? "查無會員時，系統不會自動建立帳號。" : "已註冊的手機與生日不會再次建立帳號。"}</em></details></section>`;
   if (lineReady) $("#login").onclick = startLogin;
   document.querySelectorAll("[data-phone-auth-mode]").forEach((tab)=>tab.onclick=()=>{phoneAuthMode=tab.dataset.phoneAuthMode === "register" ? "register" : "login";renderLogin();});
   $("#phoneAuthSubmit").onclick = submitPhoneBirthdayAuth;
 }
 function renderSessionRecovery(error) {
   const message = error?.message || "會員資料暫時無法載入";
-  $("#app").innerHTML = `<section class="ak-register ak-session-recovery"><div class="ak-register-wordmark">A-KAFFIT TEAM</div><h1>登入資料仍為你保留</h1><p>${esc(message)}</p><button class="btn" id="retrySession">重新載入首頁</button><button class="btn alt" id="resetSession">改用其他帳號登入</button><em>系統不會因暫時連線失敗而要求你重新註冊。</em></section>`;
+  $("#app").innerHTML = `<section class="ak-register ak-session-recovery"><div class="ak-register-wordmark">VEO商務中心</div><h1>登入資料仍為你保留</h1><p>${esc(message)}</p><button class="btn" id="retrySession">重新載入首頁</button><button class="btn alt" id="resetSession">改用其他帳號登入</button><em>系統不會因暫時連線失敗而要求你重新註冊。</em></section>`;
   $("#retrySession").onclick = () => render();
   $("#resetSession").onclick = () => {
     state.token = "";
@@ -1303,7 +1303,7 @@ async function home() {
   layout(`<section class="ak-dashboard">
     <header class="ak-member-summary">
       <div class="ak-member-brand-row">
-        <strong class="ak-wordmark">A’kaffit</strong>
+        <strong class="ak-wordmark">VEO商務中心</strong>
         <button type="button" class="ak-member-avatar" data-home-action="profile" aria-label="開啟會員資料">${avatar()}</button>
         <button type="button" class="ak-task-notice${taskAlert}" data-home-task-toggle aria-expanded="false" aria-controls="homeTaskDetail">
           <svg class="ak-bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9a5.5 5.5 0 0 1 11 0c0 6 2.5 6 2.5 7.5H4c0-1.5 2.5-1.5 2.5-7.5M9.5 20h5"/></svg>
@@ -1327,24 +1327,24 @@ async function home() {
         <div class="ak-feature-grid">
           <button data-home-action="cardCollection">${homeToolIcons.cardCollection}<span>名片收藏</span></button>
           <button data-home-action="card">${homeToolIcons.card}<span>電子名片</span></button>
-          <button type="button" data-home-inline="daily" aria-pressed="false">${homeToolIcons.daily}<span>每日簽到</span></button>
+          <button type="button" data-home-inline="daily" aria-pressed="true">${homeToolIcons.daily}<span>每日簽到</span></button>
           <button data-home-action="smartMatch">${homeToolIcons.smartMatch}<span>智能配對</span></button>
           <button data-home-action="calendar">${homeToolIcons.calendar}<span>個人行程</span></button>
           <button data-home-action="tasks">${homeToolIcons.tasks}<span>AI 任務</span></button>
         </div>
 
       </div>
-      <section id="homeDailyPanel" class="ak-daily-panel ak-content-panel hidden" data-content-panel="daily" aria-label="每日簽到"></section>
+      <section id="homeDailyPanel" class="ak-daily-panel ak-content-panel" data-content-panel="daily" aria-label="每日簽到"></section>
       <section class="ak-youtube-panel ak-content-panel hidden" data-content-panel="youtube" aria-label="A’kaffit YouTube 頻道"></section>
       <section class="ak-facebook-panel ak-content-panel hidden" data-content-panel="facebook" aria-label="A’kaffit Facebook 粉絲專頁"><iframe class="ak-facebook-frame" title="A’kaffit Facebook 粉絲專頁" src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61565353201161&amp;tabs=timeline&amp;width=500&amp;height=900&amp;small_header=true&amp;adapt_container_width=true&amp;hide_cover=false&amp;show_facepile=false" loading="lazy" scrolling="yes" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe></section>
       <section class="ak-instagram-panel ak-content-panel hidden" data-content-panel="instagram" aria-label="A’kaffit Instagram"><iframe class="ak-instagram-frame" title="A’kaffit Instagram" src="https://www.instagram.com/akaffit/embed/" loading="lazy" scrolling="yes" frameborder="0" allowtransparency="true"></iframe><div class="ak-instagram-more"><p>Instagram 官方預覽顯示近期貼文</p><a href="https://www.instagram.com/akaffit/" target="_blank" rel="noopener noreferrer">查看更多 Instagram 貼文 ↗</a></div></section>
-      <section class="ak-official-import ak-content-panel" data-content-panel="official" aria-label="A’kaffit 官方網站"><div class="ak-official-import-loading">A’kaffit 官網載入中…</div><iframe class="ak-official-import-frame" title="A’kaffit 官方網站" src="/akaffit-official" loading="eager"></iframe></section>
+      <section class="ak-official-import ak-content-panel hidden" data-content-panel="official" aria-label="A’kaffit 官方網站"><div class="ak-official-import-loading">A’kaffit 官網載入中…</div><iframe class="ak-official-import-frame" title="A’kaffit 官方網站" src="/akaffit-official" loading="lazy"></iframe></section>
       <section class="ak-academy-panel ak-content-panel hidden" data-content-panel="academy" aria-label="咖啡學院">${goldenJourneyMarkup()}</section>
       <div class="ak-content-tabs" role="tablist" aria-label="品牌內容切換">
         <button type="button" role="tab" aria-selected="false" data-content-view="youtube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>YouTube</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 21v-8h2.8l.5-3h-3.3V8.1c0-.9.3-1.6 1.7-1.6H18V3.8c-.6-.1-1.4-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3V10H8.5v3h2.8v8z"/></svg><span>Facebook</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.8" r=".8"/></svg><span>Instagram</span></button>
-        <button type="button" role="tab" aria-selected="true" class="active" data-content-view="official"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3"/></svg><span>官方網站</span></button>
+        <button type="button" role="tab" aria-selected="false" data-content-view="official"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3"/></svg><span>官方網站</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h12v7a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM17 10h1.5a2.5 2.5 0 0 1 0 5H17M7 4c0 1 1 1 1 2M11 4c0 1 1 1 1 2M15 4c0 1 1 1 1 2"/></svg><span>咖啡學院</span></button>
       </div>
     </section>
@@ -1386,6 +1386,7 @@ async function home() {
       loadAkaffitYoutube();
     }
   }));
+  await openHomeDaily();
 }
 async function legacyHome() {
   const wallet = await api("/v1/points/wallet");

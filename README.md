@@ -1,4 +1,4 @@
-# A-KAFFIT TEAM 商脈中心
+# VEO商務中心
 
 以 `mirabeauty` 為功能基線建立的康立獨立版 LINE 會員入口，部署於 Cloudflare Workers。
 
