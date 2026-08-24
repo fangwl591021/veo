@@ -2,8 +2,8 @@
 
 Cloudflare Worker project for `veo`.
 
-This repository preserves the runtime behavior of the source Worker `drveo`:
-every request returns a plain-text `Hello World!` response.
+This Worker serves the LIFF entry page for `2010657278-VqB7uA2y` and initializes
+the LINE Front-end Framework with the public configuration in `wrangler.jsonc`.
 
 ## Development
 
@@ -20,4 +20,5 @@ npm run dev
 npm run deploy
 ```
 
-The project intentionally has no Cloudflare resource bindings or secrets.
+The project intentionally has no storage bindings or secrets. `LIFF_ID` and
+`LIFF_URL` are public, non-secret configuration values.

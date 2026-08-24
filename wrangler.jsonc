@@ -2,5 +2,9 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "veo",
   "main": "src/index.js",
-  "compatibility_date": "2026-08-24"
+  "compatibility_date": "2026-08-24",
+  "vars": {
+    "LIFF_ID": "2010657278-VqB7uA2y",
+    "LIFF_URL": "https://liff.line.me/2010657278-VqB7uA2y"
+  }
 }
