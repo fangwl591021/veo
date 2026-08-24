@@ -881,7 +881,7 @@ async function app(request, env, ctx) {
   if (request.method === "GET" && url.pathname === "/api/health") {
     return json({
       success: true,
-      service: "akaffit-team-member-crm",
+      service: "veo-business-center",
       version: "20260722-mlm-ai-2",
       cardAiProvider: "local-ai",
     });
