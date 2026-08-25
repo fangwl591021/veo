@@ -67,7 +67,10 @@ test("members can reach registration before scanning the fixed check-in QR", () 
   for (const app of [read("../public/app.js"), read("../public/app-20260815-132.js")]) {
     assert.doesNotMatch(app, /class="ak-course-registration-entry"/);
     assert.match(app, /class="ak-content-tabs" role="tablist" aria-label="首頁功能頁籤"/);
-    assert.match(app, /data-home-action="courses">\$\{portalIcon\("courses"\)\}<span>活動報名/);
+    assert.doesNotMatch(app, /class="ak-content-tabs"[\s\S]*?data-home-action="courses"/);
+    assert.match(app, /class="daily-top-tabs" role="tablist" aria-label="簽到與課程功能"/);
+    assert.match(app, /class="daily-top-tab" data-course-registration>課程報名/);
+    assert.match(app, /courseButton\.onclick = async \(\) => \{ state\.tab = "courses"; await render\(\); \}/);
     assert.match(app, /id="openCourseRegistration">前往活動報名/);
     assert.match(app, /error\.message === "registration_required"/);
     assert.match(app, /<h2>活動報名<\/h2>/);
@@ -76,7 +79,7 @@ test("members can reach registration before scanning the fixed check-in QR", () 
     assert.match(app, /state\.courseView = "records";\s+await courses\(\)/);
   }
   const css = read("../public/akaffit-20260801-41.css");
-  assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*repeat\(6/);
+  assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*repeat\(5/);
   assert.match(css, /\.smart-checkin-actions/);
   const courses = read("../src/courses.js");
   assert.match(courses, /activityName: row\.session_title \|\| row\.course_title/);

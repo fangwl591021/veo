@@ -1362,7 +1362,6 @@ async function home() {
       <section class="ak-official-import ak-content-panel hidden" data-content-panel="official" aria-label="A’kaffit 官方網站"><div class="ak-official-import-loading">A’kaffit 官網載入中…</div><iframe class="ak-official-import-frame" title="A’kaffit 官方網站" src="/akaffit-official" loading="lazy"></iframe></section>
       <section class="ak-academy-panel ak-content-panel hidden" data-content-panel="academy" aria-label="咖啡學院">${goldenJourneyMarkup()}</section>
       <div class="ak-content-tabs" role="tablist" aria-label="首頁功能頁籤">
-        <button type="button" role="tab" aria-selected="false" data-home-action="courses">${portalIcon("courses")}<span>活動報名</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="youtube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>YouTube</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 21v-8h2.8l.5-3h-3.3V8.1c0-.9.3-1.6 1.7-1.6H18V3.8c-.6-.1-1.4-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3V10H8.5v3h2.8v8z"/></svg><span>Facebook</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.8" r=".8"/></svg><span>Instagram</span></button>
@@ -1630,11 +1629,13 @@ async function daily(targetSelector = "") {
     target.innerHTML = markup;
     return true;
   };
-  const renderTabs = (campaigns = []) => campaigns.length ? `<div class="daily-top-tabs" role="tablist">${campaigns.map((campaign) => `<button type="button" class="daily-top-tab ${state.dailyCampaignId === campaign.id ? "active" : ""}" data-daily-campaign="${esc(campaign.id)}">${esc(campaign.name || "簽到活動")}</button>`).join("")}</div>` : "";
+  const renderTabs = (campaigns = []) => `<div class="daily-top-tabs" role="tablist" aria-label="簽到與課程功能">${campaigns.map((campaign) => `<button type="button" class="daily-top-tab ${state.dailyCampaignId === campaign.id ? "active" : ""}" data-daily-campaign="${esc(campaign.id)}">${esc(campaign.name || "簽到活動")}</button>`).join("")}<button type="button" class="daily-top-tab" data-course-registration>課程報名</button></div>`;
   const bindTabs = () => {
     getDailyRoot()?.querySelectorAll("[data-daily-campaign]").forEach((button) => {
       button.onclick = () => { state.dailyPanel = "checkin"; state.dailyCampaignId = button.dataset.dailyCampaign; daily(targetSelector); };
     });
+    const courseButton = getDailyRoot()?.querySelector("[data-course-registration]");
+    if (courseButton) courseButton.onclick = async () => { state.tab = "courses"; await render(); };
   };
   const query = state.dailyCampaignId ? `?campaignId=${encodeURIComponent(state.dailyCampaignId)}` : "";
   const r = await api(`/v1/daily-ad${query}`);
