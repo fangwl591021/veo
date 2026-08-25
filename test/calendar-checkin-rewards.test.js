@@ -62,3 +62,19 @@ test("current member and admin surfaces call K points simply points", () => {
     assert.doesNotMatch(app, /K點|K 點/);
   }
 });
+
+test("members can reach registration before scanning the fixed check-in QR", () => {
+  for (const app of [read("../public/app.js"), read("../public/app-20260815-132.js")]) {
+    assert.match(app, /class="ak-course-registration-entry" aria-label="活動報名入口"/);
+    assert.match(app, /data-home-action="courses">\$\{portalIcon\("courses"\)\}/);
+    assert.match(app, /先完成報名，活動時間內再掃描固定 QR 簽到/);
+    assert.match(app, /id="openCourseRegistration">前往活動報名/);
+    assert.match(app, /error\.message === "registration_required"/);
+    assert.match(app, /<h2>活動報名<\/h2>/);
+    assert.match(app, />\$\{registered\.has\(s\.sessionId\) \? "已報名" : "立即報名"\}<\/button>/);
+    assert.match(app, /state\.courseView = "records";\s+await courses\(\)/);
+  }
+  const css = read("../public/akaffit-20260801-41.css");
+  assert.match(css, /\.ak-course-registration-entry/);
+  assert.match(css, /\.smart-checkin-actions/);
+});

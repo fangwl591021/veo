@@ -461,12 +461,14 @@ async function smartCheckin() {
     layout(`<section class="card smart-checkin-result success"><h2>✓ ${message}</h2><p class="muted">已完成報名資格、報到時間與活動場次驗證。</p><button class="btn" id="backCourses">查看課程紀錄</button></section>`);
   } catch (error) {
     const text = smartCheckinReason[error.message] || error.message || "智慧簽到失敗";
-    layout(`<section class="card smart-checkin-result"><h2>暫時無法完成簽到</h2><p class="muted">${esc(text)}</p><button class="btn alt" id="retrySmartCheckin">重新驗證</button></section>`);
+    const registrationAction = error.message === "registration_required" ? '<button class="btn" id="openCourseRegistration">前往活動報名</button>' : "";
+    layout(`<section class="card smart-checkin-result"><h2>暫時無法完成簽到</h2><p class="muted">${esc(text)}</p><div class="smart-checkin-actions">${registrationAction}<button class="btn alt" id="retrySmartCheckin">重新驗證</button></div></section>`);
   }
   state.smartCheckin = false;
   sessionStorage.removeItem("klinkweb_smart_checkin");
   history.replaceState({}, "", location.pathname);
   $("#backCourses")?.addEventListener("click", () => courses());
+  $("#openCourseRegistration")?.addEventListener("click", () => { state.tab = "courses"; state.courseView = "catalog"; courses(); });
   $("#retrySmartCheckin")?.addEventListener("click", () => { state.smartCheckin = true; smartCheckin(); });
 }
 const portalIcon = (name) => ({
@@ -1341,6 +1343,9 @@ async function home() {
       <button type="button" class="ak-task-summary" data-home-task-toggle aria-expanded="false" aria-controls="homeTaskDetail"><span>今天要推進什麼？</span><b>${esc(taskCount)}</b><svg class="ak-task-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5"/></svg></button>
       <div id="homeTaskDetail" class="ak-home-task-detail" data-home-task-detail hidden><div class="ak-home-task-list">${homeTaskListMarkup(taskSummary)}</div><button type="button" class="ak-task-all" data-home-action="tasks">查看全部任務</button></div>
     </section>
+    <section class="ak-course-registration-entry" aria-label="活動報名入口">
+      <button type="button" data-home-action="courses">${portalIcon("courses")}<span><strong>活動報名</strong><small>先完成報名，活動時間內再掃描固定 QR 簽到</small></span><b>查看活動 ›</b></button>
+    </section>
     <section class="ak-home-content">
       <div class="ak-frozen-nav">
         <div class="ak-feature-grid">
@@ -1578,7 +1583,7 @@ async function courses() {
   const formatCourseDate = (value) => new Intl.DateTimeFormat("zh-TW", { timeZone:"Asia/Taipei", month:"numeric", day:"numeric", weekday:"short" }).format(new Date(value));
   const formatCourseTime = (value) => new Intl.DateTimeFormat("zh-TW", { timeZone:"Asia/Taipei", hour:"2-digit", minute:"2-digit", hour12:false }).format(new Date(value));
   const formatRecordTime = (value) => value ? new Intl.DateTimeFormat("zh-TW", { timeZone:"Asia/Taipei", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false }).format(new Date(value)) : "—";
-  const activityHeader = `<div class="course-page-head"><h2>課程活動</h2><button class="course-record-tag ${state.courseView === "records" ? "active" : ""}" data-course-view="${state.courseView === "records" ? "catalog" : "records"}">${state.courseView === "records" ? "活動列表" : "課程紀錄"}</button></div>`;
+  const activityHeader = `<div class="course-page-head"><div><h2>活動報名</h2><p>請先完成報名；到了簽到時間，再掃描現場固定 QR 完成簽到。</p></div><button class="course-record-tag ${state.courseView === "records" ? "active" : ""}" data-course-view="${state.courseView === "records" ? "catalog" : "records"}">${state.courseView === "records" ? "活動列表" : "我的報名"}</button></div>`;
   const statusOf = (session) => session.attendanceStatus === "verified" ? ["已完成", "completed"] : session.registrationStatus === "cancelled" ? ["已取消", "cancelled"] : ["已報名", "registered"];
   const records = mine.sessions.length
     ? `<section class="course-records">${mine.sessions.map((s) => { const [status, type] = statusOf(s); return `<article class="course-record-card"><div class="course-record-top"><div><small>場次紀錄</small><h3>${esc(s.courseTitle || s.title)}</h3></div><span class="course-status ${type}">${status}</span></div><p class="course-record-id">${esc(s.sessionId)}</p><div class="course-record-details"><div><span>活動日期</span><b>${esc(formatCourseDate(s.startsAt))}</b></div><div><span>活動時間</span><b>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</b></div><div><span>報名時間</span><b>${esc(formatRecordTime(s.registeredAt))}</b></div><div><span>${s.attendanceStatus === "verified" ? "簽到時間" : "報到狀態"}</span><b>${s.attendanceStatus === "verified" ? esc(formatRecordTime(s.attendanceAt)) : "尚未簽到"}</b></div></div></article>`; }).join("")}</section>`
@@ -1589,7 +1594,8 @@ async function courses() {
           const image = s.coverUrl
             ? `<img class="course-cover" src="${esc(s.coverUrl)}" alt="${esc(s.courseTitle)}">`
             : `<div class="course-cover course-cover-placeholder" aria-hidden="true"><span>✦</span></div>`;
-          return `<article class="card course-card">${image}<div class="course-card-body"><h3>${esc(s.courseTitle || s.title)}</h3><p class="course-description">${esc(s.courseDescription || s.title || "活動說明將於現場提供")}</p><div class="course-card-footer"><div><strong>${esc(formatCourseDate(s.startsAt))}</strong><span>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</span></div><button class="btn" data-register="${s.sessionId}" ${registered.has(s.sessionId) ? "disabled" : ""}>${registered.has(s.sessionId) ? "已報名" : "我要報名"}</button></div></div></article>`;
+          const locationText = s.mode === "online" ? "線上活動" : (s.venueName || s.venueAddress || "現場活動");
+          return `<article class="card course-card">${image}<div class="course-card-body"><h3>${esc(s.courseTitle || s.title)}</h3><p class="course-description">${esc(s.courseDescription || s.title || "活動說明將於現場提供")}</p><p class="course-location">${esc(locationText)}</p><div class="course-card-footer"><div><strong>${esc(formatCourseDate(s.startsAt))}</strong><span>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</span></div><button class="btn" data-register="${s.sessionId}" ${registered.has(s.sessionId) ? "disabled" : ""}>${registered.has(s.sessionId) ? "已報名" : "立即報名"}</button></div></div></article>`;
         }).join("")}</section>`
     : '<div class="card muted">目前沒有公開課程</div>';
   layout(`${activityHeader}${scanNotice ? `<div class="notice">${esc(scanNotice)}</div>` : ""}${state.courseView === "records" ? records : cards}`);
@@ -1602,8 +1608,8 @@ async function courses() {
               method: "POST",
               body: "{}",
             }), { busy:"報名中…", success:"已報名" });
-          alert("報名成功");
-          courses();
+          state.courseView = "records";
+          await courses();
         } catch (e) {
           alert(e.message);
         }
