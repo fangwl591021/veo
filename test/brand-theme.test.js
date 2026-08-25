@@ -36,11 +36,11 @@ test("public site uses the coffee-inspired A-kaffit rust theme", () => {
   assert.match(baseCss, /\.media-dialog\{[^}]*z-index:1000[^}]*safe-area-inset-top/);
   assert.match(baseCss, /\.media-dialog-close\{[^}]*right:8px;top:8px;width:44px;height:44px/);
   assert.match(baseCss, /html,body,main,main#app\{background:#FFFFBB\}/);
-  assert.match(html, /\/styles\.css\?v=20260825-73/);
+  assert.match(html, /\/styles\.css\?v=20260825-74/);
   assert.match(html, /\/akaffit-20260801-41\.css\?v=20260825-45/);
-  assert.match(workerHtml, /\/styles\.css\?v=20260825-73/);
+  assert.match(workerHtml, /\/styles\.css\?v=20260825-74/);
   assert.match(workerHtml, /\/akaffit-20260801-41\.css\?v=20260825-45/);
-  assert.match(html, /\/app-20260815-132\.js\?v=20260825-6/);
+  assert.match(html, /\/app-20260815-132\.js\?v=20260825-7/);
   assert.match(worker, /\/index-20260815-133\.txt/);
   assert.match(adminHtml, /圖片請使用 2:3 直式，建議 800 × 1200 px/);
   assert.match(adminHtml, /2:3 等比預覽｜建議 800 × 1200 px/);

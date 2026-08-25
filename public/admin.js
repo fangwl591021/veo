@@ -502,7 +502,43 @@ function renderCalendarMonth() {
   $("#calendarMonth").innerHTML = cells.join("");
   document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit));
 }
-function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => { const delta=Number(event.checkinPointsDelta||0); const badge=delta>0?`簽到 +${delta} 點`:delta<0?`簽到 ${delta} 點`:"簽到不異動點數"; const badgeClass=delta>0?"active":delta<0?"deduct":"inactive"; return `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><span class="calendar-reward-badge ${badgeClass}">${badge}</span><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯活動／點數</button></div></article>`; }).join("") : '<p class="muted">目前沒有行事曆活動。請按「新增活動／設定點數」。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
+function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => { const delta=Number(event.checkinPointsDelta||0); const badge=delta>0?`簽到 +${delta} 點`:delta<0?`簽到 ${delta} 點`:"簽到不異動點數"; const badgeClass=delta>0?"active":delta<0?"deduct":"inactive"; return `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><span class="calendar-reward-badge ${badgeClass}">${badge}</span><button class="outline" data-calendar-registrations="${esc(event.sessionId)}">報名名單</button><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯活動／點數</button></div></article>`; }).join("") : '<p class="muted">目前沒有行事曆活動。請按「新增活動／設定點數」。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); document.querySelectorAll("[data-calendar-registrations]").forEach(button => button.onclick = () => openCalendarRegistrations(button.dataset.calendarRegistrations)); }
+const adminDateTime = (value) => value ? new Date(value).toLocaleString("zh-TW", { hour12:false }) : "—";
+function ensureCalendarRegistrationModal() {
+  if ($("#calendarRegistrationModal")) return;
+  document.body.insertAdjacentHTML("beforeend", `<div class="calendar-registration-modal" id="calendarRegistrationModal" hidden><div class="calendar-registration-backdrop" data-close-registration-modal></div><section class="calendar-registration-sheet" role="dialog" aria-modal="true" aria-labelledby="calendarRegistrationTitle"><header><div><small>活動報名管理</small><h2 id="calendarRegistrationTitle">報名名單</h2></div><button type="button" data-close-registration-modal aria-label="關閉">×</button></header><div id="calendarRegistrationBody" class="calendar-registration-body"></div></section></div>`);
+  document.querySelectorAll("[data-close-registration-modal]").forEach(node => node.onclick = () => { $("#calendarRegistrationModal").hidden = true; });
+}
+function renderCalendarRegistrations(sessionId, registrations = []) {
+  const body = $("#calendarRegistrationBody");
+  const registeredCount = registrations.filter(row => row.registrationStatus === "registered").length;
+  body.innerHTML = `<div class="calendar-registration-summary"><strong>有效報名 ${registeredCount} 人</strong><span>全部紀錄 ${registrations.length} 筆</span></div>${registrations.length ? `<div class="calendar-registration-list">${registrations.map(row => { const checkedIn = row.attendanceStatus === "verified"; const active = row.registrationStatus === "registered"; const status = checkedIn ? "已簽到" : active ? "已報名" : "已取消"; return `<article><div><strong>${esc(row.displayName || row.memberNumber || row.userId)}</strong><small>${esc(row.memberNumber || "未設定會員編號")}｜${esc(adminDateTime(row.registeredAt))}</small></div><span class="registration-state ${checkedIn ? "checked-in" : active ? "registered" : "cancelled"}">${status}</span>${active && !checkedIn ? `<button type="button" class="dangerButton" data-admin-cancel-registration="${esc(row.registrationId)}">取消報名</button>` : ""}</article>`; }).join("")}</div>` : '<p class="muted calendar-registration-empty">目前沒有報名紀錄。</p>'}`;
+  body.querySelectorAll("[data-admin-cancel-registration]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("確定由後台取消這筆報名？")) return;
+      try {
+        await withButtonFeedback(button, () => api(`/v1/admin/course-registrations/${encodeURIComponent(button.dataset.adminCancelRegistration)}/cancel`, {}, "POST"), { busy:"取消中…", success:"已取消" });
+        await openCalendarRegistrations(sessionId);
+        showStatus("報名已取消");
+      } catch (error) {
+        showStatus(error.message === "attendance_completed" ? "會員已完成簽到，不能取消報名。" : error.message, "error");
+      }
+    };
+  });
+}
+async function openCalendarRegistrations(sessionId) {
+  ensureCalendarRegistrationModal();
+  const event = calendarEvents.find(row => row.sessionId === sessionId);
+  $("#calendarRegistrationTitle").textContent = `${event?.title || event?.courseTitle || "活動"}｜報名名單`;
+  $("#calendarRegistrationBody").innerHTML = '<p class="muted calendar-registration-empty">報名名單載入中…</p>';
+  $("#calendarRegistrationModal").hidden = false;
+  try {
+    const data = await api(`/v1/admin/calendar/events/${encodeURIComponent(sessionId)}/registrations`);
+    renderCalendarRegistrations(sessionId, data.registrations || []);
+  } catch (error) {
+    $("#calendarRegistrationBody").innerHTML = `<p class="danger calendar-registration-empty">${esc(error.message)}</p>`;
+  }
+}
 async function loadCalendar() { try { const data = await api('/v1/admin/calendar/events'); calendarEvents = data.events || []; renderFixedCheckinQr(); renderCalendarMonth(); renderCalendarList(); } catch (error) { showStatus(error.message, 'error'); } }
 function clearCalendarEditor() { $("#calendarEditor").hidden = true; $("#calendarEventId").value = ""; calendarStatus(""); }
 function fillCalendarEditor(event, { copy = false } = {}) {

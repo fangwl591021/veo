@@ -1583,7 +1583,7 @@ async function courses() {
   const activityHeader = `<div class="course-page-head"><div><h2>活動報名</h2><p>請先完成報名；到了簽到時間，再掃描現場固定 QR 完成簽到。</p></div><button class="course-record-tag ${state.courseView === "records" ? "active" : ""}" data-course-view="${state.courseView === "records" ? "catalog" : "records"}">${state.courseView === "records" ? "活動列表" : "我的報名"}</button></div>`;
   const statusOf = (session) => session.attendanceStatus === "verified" ? ["已完成", "completed"] : session.registrationStatus === "cancelled" ? ["已取消", "cancelled"] : ["已報名", "registered"];
   const records = mine.sessions.length
-    ? `<section class="course-records">${mine.sessions.map((s) => { const [status, type] = statusOf(s); return `<article class="course-record-card"><div class="course-record-top"><div><small>活動名稱</small><h3>${esc(s.activityName || s.title || s.courseTitle || "未命名活動")}</h3></div><span class="course-status ${type}">${status}</span></div><p class="course-record-id">${esc(s.sessionId)}</p><div class="course-record-details"><div><span>活動日期</span><b>${esc(formatCourseDate(s.startsAt))}</b></div><div><span>活動時間</span><b>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</b></div><div><span>報名時間</span><b>${esc(formatRecordTime(s.registeredAt))}</b></div><div><span>${s.attendanceStatus === "verified" ? "簽到時間" : "報到狀態"}</span><b>${s.attendanceStatus === "verified" ? esc(formatRecordTime(s.attendanceAt)) : "尚未簽到"}</b></div></div></article>`; }).join("")}</section>`
+    ? `<section class="course-records">${mine.sessions.map((s) => { const [status, type] = statusOf(s); const canCancel = s.registrationStatus === "registered" && s.attendanceStatus !== "verified"; return `<article class="course-record-card"><div class="course-record-top"><div><small>活動名稱</small><h3>${esc(s.activityName || s.title || s.courseTitle || "未命名活動")}</h3></div><span class="course-status ${type}">${status}</span></div><p class="course-record-id">${esc(s.sessionId)}</p><div class="course-record-details"><div><span>活動日期</span><b>${esc(formatCourseDate(s.startsAt))}</b></div><div><span>活動時間</span><b>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</b></div><div><span>報名時間</span><b>${esc(formatRecordTime(s.registeredAt))}</b></div><div><span>${s.attendanceStatus === "verified" ? "簽到時間" : "報到狀態"}</span><b>${s.attendanceStatus === "verified" ? esc(formatRecordTime(s.attendanceAt)) : "尚未簽到"}</b></div></div>${canCancel ? `<div class="course-record-actions"><button type="button" class="course-cancel-registration" data-cancel-registration="${esc(s.sessionId)}">取消報名</button></div>` : ""}</article>`; }).join("")}</section>`
     : '<div class="course-record-empty">目前還沒有報名任何課程</div>';
   const cards = all.sessions.length
     ? `<section class="course-grid">${all.sessions
@@ -1612,6 +1612,18 @@ async function courses() {
         }
       }),
   );
+  document.querySelectorAll("[data-cancel-registration]").forEach((button) => {
+    button.onclick = async () => {
+      if (!await appConfirm("確定取消這場課程報名？", { confirmLabel:"取消報名", cancelLabel:"保留報名", tone:"danger" })) return;
+      try {
+        await withActionFeedback(button, () => api(`/v1/course-sessions/${encodeURIComponent(button.dataset.cancelRegistration)}/cancel-registration`, { method:"POST", body:"{}" }), { busy:"取消中…", success:"已取消" });
+        state.courseView = "records";
+        await courses();
+      } catch (error) {
+        alert(error.message === "attendance_completed" ? "已完成簽到，不能取消報名。" : error.message);
+      }
+    };
+  });
 }
 async function daily(targetSelector = "") {
   if (dailyRotationTimer) {

@@ -143,16 +143,81 @@ export async function listMyCourseSessions(db, userId) {
   return (result.results || []).map(row => ({ ...publicSession(row), registrationStatus: row.registration_status, attendanceStatus: row.attendance_status || '' }));
 }
 
+export async function listSessionRegistrations(db, sessionId) {
+  const result = await db.prepare(`
+    SELECT cr.id AS registration_id, cr.status AS registration_status, cr.source, cr.registered_at, cr.cancelled_at,
+      pu.id AS user_id, mp.display_name, mp.member_number,
+      ar.status AS attendance_status, ar.checked_in_at AS attendance_at
+    FROM course_registrations cr
+    JOIN platform_users pu ON pu.id = cr.platform_user_id
+    LEFT JOIN member_profiles mp ON mp.platform_user_id = pu.id
+    LEFT JOIN attendance_records ar ON ar.course_session_id = cr.course_session_id AND ar.platform_user_id = cr.platform_user_id
+    WHERE cr.course_session_id = ?
+    ORDER BY cr.registered_at DESC
+  `).bind(sessionId).all();
+  return (result.results || []).map(row => ({
+    registrationId: row.registration_id,
+    registrationStatus: row.registration_status,
+    source: row.source,
+    registeredAt: row.registered_at,
+    cancelledAt: row.cancelled_at || '',
+    userId: row.user_id,
+    displayName: row.display_name || '',
+    memberNumber: row.member_number || '',
+    attendanceStatus: row.attendance_status || '',
+    attendanceAt: row.attendance_at || '',
+  }));
+}
+
+export async function cancelCourseRegistration(db, { registrationId = '', userId = '', sessionId = '' } = {}) {
+  const row = registrationId
+    ? await db.prepare(`
+        SELECT cr.id, cr.status, ar.status AS attendance_status
+        FROM course_registrations cr
+        LEFT JOIN attendance_records ar ON ar.course_session_id = cr.course_session_id AND ar.platform_user_id = cr.platform_user_id
+        WHERE cr.id = ?
+      `).bind(registrationId).first()
+    : await db.prepare(`
+        SELECT cr.id, cr.status, ar.status AS attendance_status
+        FROM course_registrations cr
+        LEFT JOIN attendance_records ar ON ar.course_session_id = cr.course_session_id AND ar.platform_user_id = cr.platform_user_id
+        WHERE cr.course_session_id = ? AND cr.platform_user_id = ?
+      `).bind(sessionId, userId).first();
+  if (!row) return { ok: false, reason: 'registration_not_found' };
+  if (row.attendance_status === 'verified') return { ok: false, reason: 'attendance_completed' };
+  if (row.status === 'cancelled') return { ok: true, duplicate: true, registrationId: row.id };
+  const result = await db.prepare(`
+    UPDATE course_registrations
+    SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND status = 'registered'
+  `).bind(row.id).run();
+  return result.meta?.changes
+    ? { ok: true, duplicate: false, registrationId: row.id }
+    : { ok: false, reason: 'registration_not_found' };
+}
+
 export async function registerForSession(db, userId, sessionId, source = 'member_portal') {
   const session = await db.prepare(`
     SELECT cs.id, cs.status, c.status AS course_status
     FROM course_sessions cs JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?
   `).bind(sessionId).first();
   if (!session || session.course_status !== 'published' || session.status !== 'scheduled') return { ok: false, reason: 'session_unavailable' };
-  const registrationId = newId('registration');
+  const existing = await db.prepare(`
+    SELECT id, status FROM course_registrations WHERE course_session_id = ? AND platform_user_id = ?
+  `).bind(sessionId, userId).first();
+  if (existing?.status === 'registered') return { ok: true, duplicate: true, registrationId: existing.id };
+  const registrationId = existing?.id || newId('registration');
   try {
-    await db.prepare('INSERT INTO course_registrations (id, course_session_id, platform_user_id, source) VALUES (?, ?, ?, ?)')
-      .bind(registrationId, sessionId, userId, String(source || 'member_portal').slice(0, 40)).run();
+    if (existing) {
+      await db.prepare(`
+        UPDATE course_registrations
+        SET status = 'registered', registered_at = CURRENT_TIMESTAMP, cancelled_at = NULL, source = ?
+        WHERE id = ? AND status = 'cancelled'
+      `).bind(String(source || 'member_portal').slice(0, 40), registrationId).run();
+    } else {
+      await db.prepare('INSERT INTO course_registrations (id, course_session_id, platform_user_id, source) VALUES (?, ?, ?, ?)')
+        .bind(registrationId, sessionId, userId, String(source || 'member_portal').slice(0, 40)).run();
+    }
   } catch (error) {
     if (String(error.message || '').includes('UNIQUE constraint failed: course_registrations.course_session_id, course_registrations.platform_user_id')) {
       return { ok: true, duplicate: true };

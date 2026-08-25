@@ -24,12 +24,14 @@ import {
 import { adjustPoints, awardPoints, getWallet } from "./points.js";
 import {
   cancelCalendarSession,
+  cancelCourseRegistration,
   checkInToSession,
   smartCheckInToActiveSession,
   listAdminCourses,
   listCalendarSessions,
   listMyCourseSessions,
   listPublicCourseSessions,
+  listSessionRegistrations,
   registerForSession,
   saveCalendarSession,
 } from "./courses.js";
@@ -2487,6 +2489,19 @@ async function app(request, env, ctx) {
     if (request.method === "GET" && url.pathname === "/v1/admin/calendar/events") {
       return json({ success: true, events: await listCalendarSessions(env.DB, { from: url.searchParams.get('from') || '', to: url.searchParams.get('to') || '' }) });
     }
+    const calendarRegistrationsMatch = url.pathname.match(/^\/v1\/admin\/calendar\/events\/([^/]+)\/registrations$/);
+    if (request.method === "GET" && calendarRegistrationsMatch) {
+      return json({
+        success: true,
+        registrations: await listSessionRegistrations(env.DB, decodeURIComponent(calendarRegistrationsMatch[1])),
+      });
+    }
+    const adminRegistrationCancelMatch = url.pathname.match(/^\/v1\/admin\/course-registrations\/([^/]+)\/cancel$/);
+    if (request.method === "POST" && adminRegistrationCancelMatch) {
+      const result = await cancelCourseRegistration(env.DB, { registrationId: decodeURIComponent(adminRegistrationCancelMatch[1]) });
+      if (result.ok) return json({ success: true, ...result });
+      return json({ success: false, error: result.reason }, result.reason === 'registration_not_found' ? 404 : 409);
+    }
     if (request.method === "POST" && url.pathname === "/v1/admin/calendar/events") {
       const result = await saveCalendarSession(env.DB, body);
       return result.ok ? json({ success: true, id: result.id }, 201) : badRequest(result.reason);
@@ -2700,6 +2715,20 @@ async function app(request, env, ctx) {
     return result.ok
       ? json({ success: true, ...result }, result.duplicate ? 200 : 201)
       : badRequest(result.reason);
+  }
+
+  const registrationCancelMatch = url.pathname.match(
+    /^\/v1\/course-sessions\/([^/]+)\/cancel-registration$/,
+  );
+  if (request.method === "POST" && registrationCancelMatch) {
+    const member = await currentMember(request, env);
+    if (!member) return json({ success: false, error: "Unauthorized" }, 401);
+    const result = await cancelCourseRegistration(env.DB, {
+      userId: member.userId,
+      sessionId: decodeURIComponent(registrationCancelMatch[1]),
+    });
+    if (result.ok) return json({ success: true, ...result });
+    return json({ success: false, error: result.reason }, result.reason === 'registration_not_found' ? 404 : 409);
   }
 
   const checkinMatch = url.pathname.match(

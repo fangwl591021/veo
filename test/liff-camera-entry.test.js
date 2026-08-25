@@ -60,8 +60,8 @@ test("member entry URLs prefer this project's LIFF and preserve legacy invite pa
 });
 
 test("production index loads the cache-busted LIFF camera build", () => {
-  assert.match(index, /app-20260815-132\.js\?v=20260825-6/);
-  assert.match(index, /styles\.css\?v=20260825-73/);
+  assert.match(index, /app-20260815-132\.js\?v=20260825-7/);
+  assert.match(index, /styles\.css\?v=20260825-74/);
   const workerIndex = readFileSync(new URL("../public/index-20260815-133.txt", import.meta.url), "utf8");
-  assert.match(workerIndex, /styles\.css\?v=20260825-73/);
+  assert.match(workerIndex, /styles\.css\?v=20260825-74/);
 });
