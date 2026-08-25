@@ -19,11 +19,17 @@ test("calendar label color uses a visual palette instead of asking for HEX", () 
 test("admin calendar exposes per-session check-in points", () => {
   for (const html of [read("../public/admin.html"), read("../public/admin/index.html")]) {
     assert.match(html, /id="calendarCheckinRewardPoints"/);
-    assert.match(html, /填 0 代表不贈點/);
+    assert.match(html, /id="calendarNew"[^>]*>＋ 新增活動／設定贈點/);
+    assert.match(html, /id="calendarRewardStart"[^>]*>立即設定/);
+    assert.match(html, /class="calendar-reward-field"/);
+    assert.match(html, /0 代表不贈點/);
   }
   const admin = read("../public/admin.js");
   assert.match(admin, /checkinRewardPoints: Number/);
-  assert.match(admin, /簽到贈點/);
+  assert.match(admin, /calendar-reward-badge/);
+  assert.match(admin, /編輯活動／贈點/);
+  assert.match(admin, /calendarRewardStart/);
+  assert.match(admin, /calendarNew"\)\?\.addEventListener\('click', \(\) => fillCalendarEditor\(\)/);
 });
 
 test("calendar check-in reward is stored locally and idempotent per member and session", () => {

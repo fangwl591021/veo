@@ -494,18 +494,18 @@ function renderCalendarMonth() {
   for (let day = 1; day <= lastDay; day += 1) {
     const key = `${year}-${calendarPad(month+1)}-${calendarPad(day)}`;
     const rows = calendarEvents.filter(event => calendarDateOnly(event.startsAt) === key);
-    cells.push(`<div class="calendar-cell ${rows.length ? "has-event" : ""}"><b>${day}</b>${rows.slice(0,2).map(event => `<button class="calendar-event" data-calendar-edit="${esc(event.sessionId)}"><small>${esc(calendarTimeOnly(event.startsAt))}</small>${esc(event.title || event.courseTitle)}</button>`).join("")}${rows.length > 2 ? `<span class="calendar-more">+${rows.length-2} 場</span>` : ""}</div>`);
+    cells.push(`<div class="calendar-cell ${rows.length ? "has-event" : ""}"><b>${day}</b>${rows.slice(0,2).map(event => `<button class="calendar-event" data-calendar-edit="${esc(event.sessionId)}"><small>${esc(calendarTimeOnly(event.startsAt))}</small>${esc(event.title || event.courseTitle)}${Number(event.checkinRewardPoints || 0) > 0 ? `<em>+${Number(event.checkinRewardPoints)}K</em>` : ""}</button>`).join("")}${rows.length > 2 ? `<span class="calendar-more">+${rows.length-2} 場</span>` : ""}</div>`);
   }
   while (cells.length % 7) cells.push('<div class="calendar-cell muted-cell"></div>');
   $("#calendarMonth").innerHTML = cells.join("");
   document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit));
 }
-function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}｜簽到贈點 ${Number(event.checkinRewardPoints || 0)} K點</small></div><div><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯</button></div></article>`).join("") : '<p class="muted">目前沒有行事曆活動。請新增場次。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
+function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => { const reward=Number(event.checkinRewardPoints||0); return `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><span class="calendar-reward-badge ${reward>0?"active":"inactive"}">${reward>0?`簽到 +${reward} K點`:"未設定贈點"}</span><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯活動／贈點</button></div></article>`; }).join("") : '<p class="muted">目前沒有行事曆活動。請按「新增活動／設定贈點」。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
 async function loadCalendar() { try { const data = await api('/v1/admin/calendar/events'); calendarEvents = data.events || []; renderFixedCheckinQr(); renderCalendarMonth(); renderCalendarList(); } catch (error) { showStatus(error.message, 'error'); } }
 function clearCalendarEditor() { $("#calendarEditor").hidden = true; $("#calendarEventId").value = ""; calendarStatus(""); }
 function fillCalendarEditor(event, { copy = false } = {}) {
   $("#calendarEditor").hidden = false;
-  $("#calendarEditorTitle").textContent = copy ? "複製活動" : event ? "編輯活動" : "新增活動";
+  $("#calendarEditorTitle").textContent = copy ? "複製活動與贈點設定" : event ? "編輯活動與簽到贈點" : "新增活動與簽到贈點";
   $("#calendarEventId").value = copy ? "" : event?.sessionId || "";
   $("#calendarSessionTitle").value = event?.title || "";
   $("#calendarMode").value = event?.mode || "physical";
@@ -526,7 +526,7 @@ function fillCalendarEditor(event, { copy = false } = {}) {
   $("#calendarDelete").hidden = !event || copy;
   calendarStatus(copy
     ? "已複製場次內容。請調整日期與時間後儲存；現場報到碼不會複製，需使用時請重新設定。"
-    : event ? "已載入活動，可調整後儲存。" : "填完場次、報到時間與地點後儲存。", false);
+    : event ? "已載入活動，可調整活動資料與簽到贈點後儲存。" : "填完場次、報到時間、地點與簽到贈點後儲存。", false);
   $("#calendarEditor").scrollIntoView({behavior:'smooth', block:'start'});
 }
 function openCalendarEditor(id = '') { fillCalendarEditor(calendarEvents.find(row => row.sessionId === id)); }
@@ -615,7 +615,7 @@ async function uploadCalendarCover(input) {
   }
 }
 async function deleteCalendarEvent() { const id = $("#calendarEventId").value; if (!id || !confirm('確定取消此場次？既有報名與簽到紀錄會保留。')) return; const button=$("#calendarDelete"); try { await withButtonFeedback(button, async()=>{ await api(`/v1/admin/calendar/events/${encodeURIComponent(id)}`, null, 'DELETE'); clearCalendarEditor(); await loadCalendar(); showStatus('場次已取消'); }, {busy:'取消中…',success:'已取消'}); } catch(error) { calendarStatus(error.message, true); } }
-$("#calendarNew")?.addEventListener('click', copyCalendarEvent); $("#calendarRefresh")?.addEventListener('click', loadCalendar); $("#calendarCoverImage")?.addEventListener('change', (event) => uploadCalendarCover(event.target)); $("#calendarPrev")?.addEventListener('click', () => { calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()-1, 1); renderCalendarMonth(); }); $("#calendarNext")?.addEventListener('click', () => { calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()+1, 1); renderCalendarMonth(); }); $("#calendarClose")?.addEventListener('click', clearCalendarEditor); $("#calendarSave")?.addEventListener('click', saveCalendarEvent); $("#calendarDelete")?.addEventListener('click', deleteCalendarEvent);
+$("#calendarNew")?.addEventListener('click', () => fillCalendarEditor()); $("#calendarRewardStart")?.addEventListener('click', () => fillCalendarEditor()); $("#calendarCopy")?.addEventListener('click', copyCalendarEvent); $("#calendarRefresh")?.addEventListener('click', loadCalendar); $("#calendarCoverImage")?.addEventListener('change', (event) => uploadCalendarCover(event.target)); $("#calendarPrev")?.addEventListener('click', () => { calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()-1, 1); renderCalendarMonth(); }); $("#calendarNext")?.addEventListener('click', () => { calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()+1, 1); renderCalendarMonth(); }); $("#calendarClose")?.addEventListener('click', clearCalendarEditor); $("#calendarSave")?.addEventListener('click', saveCalendarEvent); $("#calendarDelete")?.addEventListener('click', deleteCalendarEvent);
 const templateButtons = (value) =>
   String(value || "")
     .split("\n")

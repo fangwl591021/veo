@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>VEO營運統計中心</title>
-    <link rel="stylesheet" href="/admin.css?v=20260813-1" />
+    <link rel="stylesheet" href="/admin.css?v=20260825-2" />
   </head>
   <body>
     <div class="shell">
@@ -203,7 +203,10 @@
           <section class="panel calendar-panel">
             <div class="panel-head">
               <div><h2>課程行事曆</h2><p>管理活動日期、時間窗、固定 QR 報到、會員報名與點數。</p></div>
-              <div class="calendar-actions"><button class="outline" id="calendarNew" type="button">複製活動</button><button class="outline" id="calendarRefresh" type="button">重新同步</button></div>
+              <div class="calendar-actions"><button class="primary" id="calendarNew" type="button">＋ 新增活動／設定贈點</button><button class="outline" id="calendarCopy" type="button">複製目前活動</button><button class="outline" id="calendarRefresh" type="button">重新同步</button></div>
+            </div>
+            <div class="calendar-reward-entry">
+              <span aria-hidden="true">K</span><div><strong>行事曆簽到贈點</strong><p>新增或編輯活動時設定 K點；會員在該場次成功簽到後自動入帳，同一場不重複發點。</p></div><button id="calendarRewardStart" type="button">立即設定</button>
             </div>
             <div class="calendar-editor" id="calendarEditor" hidden>
               <div class="calendar-editor-head"><strong id="calendarEditorTitle">新增活動</strong><button class="outline" id="calendarClose" type="button">收合</button></div>
@@ -211,6 +214,7 @@
               <div class="calendar-form-grid">
                 <label>場次名稱<input id="calendarSessionTitle" placeholder="例如 7 月會員說明會"></label>
                 <label>模式<select id="calendarMode"><option value="physical">現場</option><option value="online">線上</option></select></label>
+                <label class="calendar-reward-field">簽到贈點（K點）<input id="calendarCheckinRewardPoints" type="number" min="0" max="1000000" step="1" value="0"><small>0 代表不贈點；同一會員同一場只發一次。</small></label>
                 <label>活動日期<input id="calendarEventDate" type="date"></label>
                 <label>開始時間<input id="calendarStartsAt" type="time"></label>
                 <label>結束時間<input id="calendarEndsAt" type="time"></label>
@@ -222,7 +226,6 @@
                 <label>活動圖片網址（上傳後自動填入）<input id="calendarCoverUrl" type="url" placeholder="https://..."></label>
                 <label>線上會議網址<input id="calendarMeetingUrl" type="url" placeholder="https://..."></label>
                 <label>現場簽到碼（修改時留空保留原碼）<input id="calendarCheckinCode" placeholder="現場掃碼或人工簽到使用"></label>
-                <label>簽到贈點（K點）<input id="calendarCheckinRewardPoints" type="number" min="0" max="1000000" step="1" value="0"><small>會員成功簽到後贈送；填 0 代表不贈點，同一會員同一場只發一次。</small></label>
               </div>
               <div class="calendar-editor-actions"><button class="primary" id="calendarSave" type="button">儲存活動</button><button class="danger" id="calendarDelete" type="button">取消場次</button></div>
               <p id="calendarEditStatus" class="muted"></p>
@@ -364,6 +367,6 @@
       </section>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="/admin.js?v=20260825-3"></script>
+    <script type="module" src="/admin.js?v=20260825-4"></script>
   </body>
 </html>
