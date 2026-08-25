@@ -136,6 +136,59 @@ export async function awardPoints(db, { userId, eventType, eventReference, idemp
   return { awarded: true, duplicate: false, entry };
 }
 
+export async function awardCalendarCheckinPoints(db, {
+  userId,
+  sessionId,
+  points,
+  attendanceId = '',
+  method = '',
+}) {
+  const amount = Number(points);
+  if (!userId || !sessionId) throw new Error('Missing calendar check-in point fields');
+  if (!Number.isInteger(amount) || amount < 0 || amount > 1000000) {
+    throw new Error('Calendar check-in points must be an integer between 0 and 1000000');
+  }
+  if (amount === 0) return { awarded: false, reason: 'calendar_reward_disabled' };
+
+  const idempotencyKey = `calendar_checkin_reward:${sessionId}:${userId}`;
+  const existing = await db.prepare(`
+    SELECT id, delta, balance_after FROM point_ledger_entries WHERE idempotency_key = ?
+  `).bind(idempotencyKey).first();
+  if (existing) return { awarded: false, duplicate: true, entry: existing };
+
+  let account = await db.prepare(`
+    SELECT id, balance FROM point_accounts WHERE platform_user_id = ? AND program_id = ?
+  `).bind(userId, MAIN_PROGRAM_ID).first();
+  if (!account) {
+    await db.prepare('INSERT OR IGNORE INTO point_accounts (id, platform_user_id, program_id) VALUES (?, ?, ?)')
+      .bind(newId('pointacct'), userId, MAIN_PROGRAM_ID).run();
+    account = await db.prepare('SELECT id, balance FROM point_accounts WHERE platform_user_id = ? AND program_id = ?')
+      .bind(userId, MAIN_PROGRAM_ID).first();
+  }
+
+  const balanceAfter = Number(account.balance) + amount;
+  const entry = { id: newId('ledger'), delta: amount, balanceAfter };
+  try {
+    await db.batch([
+      db.prepare('UPDATE point_accounts SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .bind(balanceAfter, account.id),
+      db.prepare(`INSERT INTO point_ledger_entries
+        (id, point_account_id, platform_user_id, program_id, point_rule_id, event_type, event_reference, idempotency_key, delta, balance_after, metadata_json)
+        VALUES (?, ?, ?, ?, NULL, 'calendar_checkin_reward', ?, ?, ?, ?, ?)`)
+        .bind(entry.id, account.id, userId, MAIN_PROGRAM_ID, sessionId, idempotencyKey, amount, balanceAfter,
+          JSON.stringify({ attendanceId, method, configuredPoints: amount })),
+    ]);
+  } catch (error) {
+    if (String(error.message || '').includes('UNIQUE constraint failed: point_ledger_entries.idempotency_key')) {
+      const duplicate = await db.prepare('SELECT id, delta, balance_after FROM point_ledger_entries WHERE idempotency_key = ?')
+        .bind(idempotencyKey).first();
+      return { awarded: false, duplicate: true, entry: duplicate };
+    }
+    throw error;
+  }
+  return { awarded: true, duplicate: false, entry };
+}
+
 export async function adjustPoints(db, { userId, actorUserId, action, points, note = '', requestId }) {
   const amount = Number(points);
   const reason = String(note || '').trim().slice(0, 500);

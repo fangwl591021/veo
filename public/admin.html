@@ -222,6 +222,7 @@
                 <label>活動圖片網址（上傳後自動填入）<input id="calendarCoverUrl" type="url" placeholder="https://..."></label>
                 <label>線上會議網址<input id="calendarMeetingUrl" type="url" placeholder="https://..."></label>
                 <label>現場簽到碼（修改時留空保留原碼）<input id="calendarCheckinCode" placeholder="現場掃碼或人工簽到使用"></label>
+                <label>簽到贈點（K點）<input id="calendarCheckinRewardPoints" type="number" min="0" max="1000000" step="1" value="0"><small>會員成功簽到後贈送；填 0 代表不贈點，同一會員同一場只發一次。</small></label>
               </div>
               <div class="calendar-editor-actions"><button class="primary" id="calendarSave" type="button">儲存活動</button><button class="danger" id="calendarDelete" type="button">取消場次</button></div>
               <p id="calendarEditStatus" class="muted"></p>
@@ -347,6 +348,6 @@
       </section>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="/admin.js?v=20260825-1"></script>
+    <script type="module" src="/admin.js?v=20260825-2"></script>
   </body>
 </html>

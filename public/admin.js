@@ -372,7 +372,7 @@ $("#ruleForm")?.addEventListener("submit", (event) =>
   })).then(() => loadPointRules()),
 );
 const ruleFrequencyLabel = { once:"僅一次", daily:"每日一次", per_completion:"完成給一次" };
-const ruleEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"簽到打卡", course_registered:"課程報名", attendance_verified:"課程簽到", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"任務完成", card_collection_reward:"收藏名片成功贈點", admin_points_grant:"後台贈點", admin_points_deduct:"後台扣點", admin_points_backfill:"補登舊點數", daily_ad_view:"簽到觀看", daily_ad_view_completed:"簽到觀看", daily_view:"簽到觀看" };
+const ruleEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"簽到打卡", course_registered:"課程報名", attendance_verified:"課程簽到", calendar_checkin_reward:"行事曆簽到贈點", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"任務完成", card_collection_reward:"收藏名片成功贈點", admin_points_grant:"後台贈點", admin_points_deduct:"後台扣點", admin_points_backfill:"補登舊點數", daily_ad_view:"簽到觀看", daily_ad_view_completed:"簽到觀看", daily_view:"簽到觀看" };
 async function loadPointRules() {
   const container = $("#ruleList");
   if (!container) return;
@@ -484,7 +484,7 @@ function renderCalendarMonth() {
   $("#calendarMonth").innerHTML = cells.join("");
   document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit));
 }
-function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯</button></div></article>`).join("") : '<p class="muted">目前沒有行事曆活動。請新增場次。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
+function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}｜簽到贈點 ${Number(event.checkinRewardPoints || 0)} K點</small></div><div><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯</button></div></article>`).join("") : '<p class="muted">目前沒有行事曆活動。請新增場次。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
 async function loadCalendar() { try { const data = await api('/v1/admin/calendar/events'); calendarEvents = data.events || []; renderFixedCheckinQr(); renderCalendarMonth(); renderCalendarList(); } catch (error) { showStatus(error.message, 'error'); } }
 function clearCalendarEditor() { $("#calendarEditor").hidden = true; $("#calendarEventId").value = ""; calendarStatus(""); }
 function fillCalendarEditor(event, { copy = false } = {}) {
@@ -506,6 +506,7 @@ function fillCalendarEditor(event, { copy = false } = {}) {
   $("#calendarMeetingUrl").value = event?.meetingUrl || "";
   // The original value is stored only as a hash, so it cannot be copied back safely.
   $("#calendarCheckinCode").value = "";
+  $("#calendarCheckinRewardPoints").value = String(Number(event?.checkinRewardPoints || 0));
   $("#calendarDelete").hidden = !event || copy;
   calendarStatus(copy
     ? "已複製場次內容。請調整日期與時間後儲存；現場報到碼不會複製，需使用時請重新設定。"
@@ -539,9 +540,11 @@ async function saveCalendarEvent() {
     coverUrl: $("#calendarCoverUrl").value.trim(),
     meetingUrl: $("#calendarMeetingUrl").value.trim(),
     checkinCode: $("#calendarCheckinCode").value.trim(),
+    checkinRewardPoints: Number($("#calendarCheckinRewardPoints").value),
     status: "scheduled"
   };
   if (!payload.title) return calendarStatus("請填寫活動名稱。", true);
+  if (!Number.isInteger(payload.checkinRewardPoints) || payload.checkinRewardPoints < 0 || payload.checkinRewardPoints > 1000000) return calendarStatus("簽到贈點請填 0 到 1,000,000 的整數。", true);
   if (!payload.startsAt || !payload.endsAt || !payload.checkinOpensAt || !payload.checkinClosesAt) {
     return calendarStatus("請填寫活動日期、活動時間與報到起訖時間。", true);
   }
@@ -564,6 +567,7 @@ async function saveCalendarEvent() {
       calendar_title_required: "請填寫活動名稱。",
       missing_calendar_fields: "請填寫活動日期、活動時間與報到起訖時間。",
       invalid_calendar_range: "結束時間必須晚於開始時間；報到結束也必須晚於報到開始。",
+      invalid_checkin_reward_points: "簽到贈點請填 0 到 1,000,000 的整數。",
       course_not_found: "所選課程不存在，請重新選擇或改為不連結既有課程。"
     }[error.message] || error.message;
     calendarStatus(message, true);

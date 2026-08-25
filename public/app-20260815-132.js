@@ -202,7 +202,7 @@ if (courseSessionFromLocation()) sessionStorage.setItem("klinkweb_course_session
 if (smartCheckinFromLocation()) sessionStorage.setItem("klinkweb_smart_checkin", "1");
 if (cardShareIdFromLocation()) sessionStorage.setItem("klinkweb_card_share_id", state.cardShareId);
 if (cardShareModeFromLocation()) sessionStorage.setItem("klinkweb_card_share_mode", "1");
-const pointEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"每日簽到", course_registered:"課程報名", attendance_verified:"課程簽到", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"完成任務", card_collection_reward:"掃描名片", card_collection_reward_reversal:"刪除名片扣回" };
+const pointEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"每日簽到", course_registered:"課程報名", attendance_verified:"課程簽到", calendar_checkin_reward:"行事曆簽到贈點", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"完成任務", card_collection_reward:"掃描名片", card_collection_reward_reversal:"刪除名片扣回" };
 const FIXED_CARD_IMAGE_LINK = "https://lin.ee/ngaHmLM";
 const DEFAULT_CARD_CHAT_ALT_TEXT = "健康新世代、從康立開始";
 const cardChatAltText = (card) => String(card?.chatAltText || DEFAULT_CARD_CHAT_ALT_TEXT).trim().slice(0, 300) || DEFAULT_CARD_CHAT_ALT_TEXT;
@@ -763,6 +763,24 @@ async function setCalendarLabelVisible(label, visible) {
   label.visible = visible;
   renderPersonalCalendarView();
 }
+function pickCalendarLabelColor(initialColor = "#52637d") {
+  const fallback = /^#[0-9a-f]{6}$/i.test(initialColor) ? initialColor : "#52637d";
+  const presets = ["#345bdb", "#06a66b", "#d49121", "#e2536f", "#b65d79", "#8246ee", "#0f8fa8", "#52637d", "#795548", "#202936"];
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "calendar-color-dialog";
+    dialog.innerHTML = `<form method="dialog"><header><div><small>標籤顏色</small><h2>挑選你看得懂的顏色</h2></div><button type="submit" value="cancel" aria-label="關閉">×</button></header><div class="calendar-color-preview" style="--preview-color:${esc(fallback)}"><i></i><span>標籤預覽</span></div><div class="calendar-color-palette" role="group" aria-label="常用顏色">${presets.map((color, index) => `<button type="button" data-calendar-color="${color}" style="--swatch:${color}" aria-label="常用顏色 ${index + 1}"></button>`).join("")}</div><label class="calendar-native-color">更多顏色<input type="color" value="${esc(fallback)}" aria-label="開啟系統調色盤"></label><footer><button type="submit" value="cancel" class="btn alt">取消</button><button type="button" class="btn" data-color-confirm>使用這個顏色</button></footer></form>`;
+    document.body.append(dialog);
+    const input = dialog.querySelector('input[type="color"]');
+    const preview = dialog.querySelector(".calendar-color-preview");
+    const update = (color) => { input.value = color; preview.style.setProperty("--preview-color", color); };
+    dialog.querySelectorAll("[data-calendar-color]").forEach((button) => button.onclick = () => update(button.dataset.calendarColor));
+    input.oninput = () => update(input.value);
+    dialog.querySelector("[data-color-confirm]").onclick = () => dialog.close("confirm");
+    dialog.onclose = () => { const value = dialog.returnValue === "confirm" ? input.value : null; dialog.remove(); resolve(value); };
+    dialog.showModal();
+  });
+}
 async function createCalendarLabelPrompt(suggestedName = "") {
   const initial = typeof suggestedName === "string" ? suggestedName : "";
   const name = await appPrompt("建立行事曆標籤，例如：工作、家庭、約訪、學習", initial,{title:"新增標籤",placeholder:"例如：工作"});
@@ -770,7 +788,8 @@ async function createCalendarLabelPrompt(suggestedName = "") {
   const cleanName = name.trim();
   const suggestedColors = { "工作":"#345bdb", "家庭":"#d49121", "約訪":"#b65d79", "學習":"#8246ee" };
   const current = state.calendarLabels.find((label) => label.sourceType === "custom" && label.name.trim().toLocaleLowerCase("zh-TW") === cleanName.toLocaleLowerCase("zh-TW"));
-  const color = (await appPrompt("標籤顏色（HEX 色碼）", current?.color || suggestedColors[cleanName] || "#52637d",{title:"設定標籤顏色",placeholder:"#52637d"})) || current?.color || "#52637d";
+  const color = await pickCalendarLabelColor(current?.color || suggestedColors[cleanName] || "#52637d");
+  if (!color) return null;
   const result = await api("/v1/personal-calendar/labels", { method:"POST", body:JSON.stringify({ name:cleanName, color }) });
   if (!result.label) return null;
   const existingIndex = state.calendarLabels.findIndex((label) => label.id === result.label.id);

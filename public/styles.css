@@ -267,6 +267,15 @@ main#app>*,.content,.business-card,.business-card-detail,.line-source-ecard,.lin
 .calendar-label-chip i{width:9px;height:9px;border-radius:50%;background:var(--label-color)}
 .calendar-label-chip span{font-size:9px;font-weight:700;opacity:.7}
 .calendar-label-chip.active{border-color:color-mix(in srgb,var(--label-color) 45%,#fff);background:color-mix(in srgb,var(--label-color) 10%,#fff);color:#24364c}
+.calendar-color-dialog{width:min(390px,calc(100vw - 28px));border:0;border-radius:22px;padding:0;box-shadow:0 24px 70px rgba(22,34,51,.28)}
+.calendar-color-dialog::backdrop{background:rgba(15,23,42,.52);backdrop-filter:blur(3px)}
+.calendar-color-dialog form{display:grid;gap:18px;padding:20px;background:#fff}
+.calendar-color-dialog header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.calendar-color-dialog header small{color:#b45a74;font-size:11px;font-weight:900;letter-spacing:1px}.calendar-color-dialog h2{margin:3px 0 0;font-size:20px}.calendar-color-dialog header>button{width:36px;height:36px;border:0;border-radius:50%;background:#f4edf0;color:#8f5364;font-size:24px;cursor:pointer}
+.calendar-color-preview{display:flex;align-items:center;gap:10px;border:1px solid color-mix(in srgb,var(--preview-color) 35%,#fff);border-radius:14px;background:color-mix(in srgb,var(--preview-color) 10%,#fff);padding:13px 15px;font-weight:850;color:#24364c}.calendar-color-preview i{width:18px;height:18px;border-radius:50%;background:var(--preview-color);box-shadow:0 0 0 3px #fff,0 0 0 4px color-mix(in srgb,var(--preview-color) 40%,#fff)}
+.calendar-color-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}.calendar-color-palette button{aspect-ratio:1;border:4px solid #fff;border-radius:50%;background:var(--swatch);box-shadow:0 0 0 1px #d7dde6;cursor:pointer}.calendar-color-palette button:focus-visible{outline:3px solid #111827;outline-offset:2px}
+.calendar-native-color{display:flex;align-items:center;justify-content:space-between;border:1px solid #dce3ec;border-radius:12px;padding:10px 12px;color:#526177;font-size:13px;font-weight:850}.calendar-native-color input{width:68px;height:42px;border:0;border-radius:9px;padding:2px;background:#fff;cursor:pointer}
+.calendar-color-dialog footer{display:grid;grid-template-columns:1fr 1.4fr;gap:9px}.calendar-color-dialog footer button{min-height:44px}
 .personal-calendar-day em{position:absolute;left:50%;bottom:4px;display:flex;gap:2px;transform:translateX(-50%)}
 .personal-calendar-day em i{position:static;width:4px;height:4px;margin:0;border-radius:50%}
 .personal-calendar-agenda>header>div:last-child{display:flex;gap:6px}

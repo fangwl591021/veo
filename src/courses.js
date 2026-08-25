@@ -1,6 +1,6 @@
 import { sha256 } from './auth.js';
 import { newId } from './member-repository.js';
-import { awardPoints, awardReferralAttendancePoints } from './points.js';
+import { awardCalendarCheckinPoints, awardPoints, awardReferralAttendancePoints } from './points.js';
 
 function isWithinWindow(now, opensAt, closesAt) {
   const opens = Date.parse(opensAt);
@@ -23,6 +23,7 @@ function publicSession(row) {
     meetingUrl: row.meeting_url,
     checkinOpensAt: row.checkin_opens_at,
     checkinClosesAt: row.checkin_closes_at,
+    checkinRewardPoints: Number(row.checkin_reward_points || 0),
     registeredAt: row.registered_at || '',
     attendanceAt: row.attendance_at || ''
   };
@@ -32,7 +33,7 @@ export async function listPublicCourseSessions(db) {
   const result = await db.prepare(`
     SELECT cs.id AS session_id, cs.course_id, c.title AS course_title, c.description AS course_description, c.cover_url, cs.cover_url AS session_cover_url,
       cs.title AS session_title, cs.attendance_mode, cs.starts_at, cs.ends_at, cs.venue_name, cs.venue_address,
-      cs.meeting_url, cs.checkin_opens_at, cs.checkin_closes_at
+      cs.meeting_url, cs.checkin_opens_at, cs.checkin_closes_at, cs.checkin_reward_points
     FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
     WHERE c.status = 'published' AND cs.status = 'scheduled'
     ORDER BY cs.starts_at ASC
@@ -52,7 +53,7 @@ export async function listCalendarSessions(db, { from = '', to = '' } = {}) {
   const result = await db.prepare(`
     SELECT cs.id AS session_id, cs.course_id, c.title AS course_title, c.description AS course_description, c.cover_url, cs.cover_url AS session_cover_url,
       cs.title AS session_title, cs.attendance_mode, cs.starts_at, cs.ends_at, cs.venue_name, cs.venue_address,
-      cs.meeting_url, cs.checkin_opens_at, cs.checkin_closes_at, cs.status AS session_status, c.status AS course_status
+      cs.meeting_url, cs.checkin_opens_at, cs.checkin_closes_at, cs.checkin_reward_points, cs.status AS session_status, c.status AS course_status
     FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
     ${where}
     ORDER BY cs.starts_at ASC
@@ -83,12 +84,16 @@ export async function saveCalendarSession(db, body) {
   const checkinClosesAt = String(body.checkinClosesAt || '').trim();
   const coverUrl = String(body.coverUrl || '').trim().slice(0, 4096);
   const description = String(body.description || '由行事曆活動自動建立').trim().slice(0, 8000);
+  const checkinRewardPoints = Number(body.checkinRewardPoints ?? 0);
   if (!title) return { ok: false, reason: 'calendar_title_required' };
   if (!['physical', 'online'].includes(mode) || !startsAt || !endsAt || !checkinOpensAt || !checkinClosesAt) {
     return { ok: false, reason: 'missing_calendar_fields' };
   }
   if (Date.parse(endsAt) <= Date.parse(startsAt) || Date.parse(checkinClosesAt) <= Date.parse(checkinOpensAt)) {
     return { ok: false, reason: 'invalid_calendar_range' };
+  }
+  if (!Number.isInteger(checkinRewardPoints) || checkinRewardPoints < 0 || checkinRewardPoints > 1000000) {
+    return { ok: false, reason: 'invalid_checkin_reward_points' };
   }
 
   const id = String(body.id || '').trim() || newId('session');
@@ -105,13 +110,13 @@ export async function saveCalendarSession(db, body) {
   const codeHash = body.checkinCode ? await sha256(String(body.checkinCode)) : '';
   if (existing) {
     const codeSql = body.checkinCode ? ', checkin_code_hash = ?' : '';
-    const binds = [courseId, title, mode, startsAt, endsAt, String(body.venueName || ''), String(body.venueAddress || ''), String(body.meetingUrl || ''), checkinOpensAt, checkinClosesAt, coverUrl];
+    const binds = [courseId, title, mode, startsAt, endsAt, String(body.venueName || ''), String(body.venueAddress || ''), String(body.meetingUrl || ''), checkinOpensAt, checkinClosesAt, coverUrl, checkinRewardPoints];
     if (body.checkinCode) binds.push(codeHash);
     binds.push(String(body.status || 'scheduled'), id);
-    await db.prepare(`UPDATE course_sessions SET course_id = ?, title = ?, attendance_mode = ?, starts_at = ?, ends_at = ?, venue_name = ?, venue_address = ?, meeting_url = ?, checkin_opens_at = ?, checkin_closes_at = ?, cover_url = ?${codeSql}, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(...binds).run();
+    await db.prepare(`UPDATE course_sessions SET course_id = ?, title = ?, attendance_mode = ?, starts_at = ?, ends_at = ?, venue_name = ?, venue_address = ?, meeting_url = ?, checkin_opens_at = ?, checkin_closes_at = ?, cover_url = ?, checkin_reward_points = ?${codeSql}, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(...binds).run();
   } else {
-    await db.prepare(`INSERT INTO course_sessions (id, course_id, title, attendance_mode, starts_at, ends_at, venue_name, venue_address, meeting_url, checkin_opens_at, checkin_closes_at, cover_url, checkin_code_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, courseId, title, mode, startsAt, endsAt, String(body.venueName || ''), String(body.venueAddress || ''), String(body.meetingUrl || ''), checkinOpensAt, checkinClosesAt, coverUrl, codeHash, String(body.status || 'scheduled')).run();
+    await db.prepare(`INSERT INTO course_sessions (id, course_id, title, attendance_mode, starts_at, ends_at, venue_name, venue_address, meeting_url, checkin_opens_at, checkin_closes_at, cover_url, checkin_code_hash, checkin_reward_points, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, courseId, title, mode, startsAt, endsAt, String(body.venueName || ''), String(body.venueAddress || ''), String(body.meetingUrl || ''), checkinOpensAt, checkinClosesAt, coverUrl, codeHash, checkinRewardPoints, String(body.status || 'scheduled')).run();
   }
   return { ok: true, id };
 }
@@ -174,7 +179,7 @@ export async function checkInToSession(db, { userId, sessionId, method, code, sm
   const normalizedMethod = String(method || '').trim();
   if (!['physical_qr', 'physical_code', 'online_keyword'].includes(normalizedMethod)) return { ok: false, reason: 'invalid_method' };
   const row = await db.prepare(`
-    SELECT cs.id, cs.attendance_mode, cs.status, cs.checkin_opens_at, cs.checkin_closes_at, cs.checkin_code_hash,
+    SELECT cs.id, cs.attendance_mode, cs.status, cs.checkin_opens_at, cs.checkin_closes_at, cs.checkin_code_hash, cs.checkin_reward_points,
       c.status AS course_status, cr.id AS registration_id, cr.status AS registration_status
     FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
     LEFT JOIN course_registrations cr ON cr.course_session_id = cs.id AND cr.platform_user_id = ?
@@ -201,16 +206,19 @@ export async function checkInToSession(db, { userId, sessionId, method, code, sm
     ]);
   } catch (error) {
     if (String(error.message || '').includes('UNIQUE constraint failed: attendance_records.course_session_id, attendance_records.platform_user_id')) {
-      return { ok: true, duplicate: true };
+      const pointResult = await awardCalendarCheckinPoints(db, {
+        userId, sessionId, points: row.checkin_reward_points, method: normalizedMethod,
+      });
+      return { ok: true, duplicate: true, pointResult };
     }
     throw error;
   }
-  const pointResult = await awardPoints(db, {
+  const pointResult = await awardCalendarCheckinPoints(db, {
     userId,
-    eventType: 'attendance_verified',
-    eventReference: sessionId,
-    idempotencyKey: `attendance_verified:${sessionId}:${userId}`,
-    metadata: { attendanceId, method: normalizedMethod }
+    sessionId,
+    points: row.checkin_reward_points,
+    attendanceId,
+    method: normalizedMethod,
   });
   const referrerPointResult = await awardReferralAttendancePoints(db, {
     referredUserId: userId,
