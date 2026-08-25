@@ -472,7 +472,7 @@ function courseCheckinCompactLiffHtml(env, origin) {
       if(!auth.ok||!identity.sessionToken)throw new Error(identity.error||"LINE 身份驗證失敗");
       const checkin=await fetch(API_ORIGIN+"/v1/course-sessions/smart-check-in",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+identity.sessionToken},body:"{}"});
       const result=await checkin.json().catch(()=>({}));
-      if(!checkin.ok)throw new Error(({no_active_session:"目前沒有可報到的活動，請確認時間。",registration_required:"尚未報名本場活動，無法報到。",session_unavailable:"此活動目前無法報到。"}[result.error])||result.error||"報到失敗");
+      if(!checkin.ok)throw new Error(({no_active_session:"目前沒有可報到的活動，請確認時間。",registration_required:"尚未報名本場活動，無法報到。",session_unavailable:"此活動目前無法報到。",insufficient_points:"點數餘額不足，無法完成簽到。"}[result.error])||result.error||"報到失敗");
       show(result.duplicate?"本課程已完成報到":"課程報到成功",result.duplicate?"你已完成本場簽到。":"已核對報名與報到時間，簽到點數將依規則入帳。","success");close();
     }catch(error){show("暫時無法完成報到",error.message||"請稍後再試","error");}
   })();

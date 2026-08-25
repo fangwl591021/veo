@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>VEO營運統計中心</title>
-    <link rel="stylesheet" href="/admin.css?v=20260825-3" />
+    <link rel="stylesheet" href="/admin.css?v=20260825-4" />
   </head>
   <body>
     <div class="shell">
@@ -35,7 +35,7 @@
             <span>▤</span> 簽到內容管理
           </button>
           <button class="nav-item" data-page="calendar">
-            <span>▣</span> 行事曆簽到贈點
+            <span>▣</span> 行事曆簽到點數
           </button>
           <button class="nav-item" data-page="richmenu">
             <span>▱</span> 圖文選單
@@ -98,8 +98,8 @@
                 <b>1</b><span>設定贈點規則</span
                 ><small>註冊、分享、每日簽到</small></button
               ><button data-go="calendar">
-                <b>2</b><span>行事曆簽到贈點</span
-                ><small>建立場次並設定 K點</small></button
+                <b>2</b><span>行事曆簽到點數</span
+                ><small>正數贈點、負數扣點</small></button
               ><button data-go="carousel">
                 <b>3</b><span>新增簽到內容</span
                 ><small>圖片、影片、觀看門檻與贈點</small></button
@@ -151,7 +151,7 @@
           <section class="panel">
             <div class="panel-head">
               <div>
-                <h2>K點扣點／贈點規則</h2>
+                <h2>點數扣點／贈點規則</h2>
                 <p>紅色為扣點規則，綠色為贈點規則；輸入正整數，系統會依交易方向執行扣除或贈送。</p>
               </div>
               <button class="secondary" type="button" id="refreshRules">重新整理</button>
@@ -206,10 +206,10 @@
           <section class="panel calendar-panel">
             <div class="panel-head">
               <div><h2>課程行事曆</h2><p>管理活動日期、時間窗、固定 QR 報到、會員報名與點數。</p></div>
-              <div class="calendar-actions"><button class="primary" id="calendarNew" type="button">＋ 新增活動／設定贈點</button><button class="outline" id="calendarCopy" type="button">複製目前活動</button><button class="outline" id="calendarRefresh" type="button">重新同步</button></div>
+              <div class="calendar-actions"><button class="primary" id="calendarNew" type="button">＋ 新增活動／設定點數</button><button class="outline" id="calendarCopy" type="button">複製目前活動</button><button class="outline" id="calendarRefresh" type="button">重新同步</button></div>
             </div>
             <div class="calendar-reward-entry">
-              <span aria-hidden="true">K</span><div><strong>行事曆簽到贈點</strong><p>新增或編輯活動時設定 K點；會員在該場次成功簽到後自動入帳，同一場不重複發點。</p></div><button id="calendarRewardStart" type="button">立即設定</button>
+              <span aria-hidden="true">±</span><div><strong>行事曆簽到點數</strong><p>正數代表贈點、負數代表扣點；餘額不足時拒絕簽到，同一會員同一場只異動一次。</p></div><button id="calendarRewardStart" type="button">立即設定</button>
             </div>
             <div class="calendar-editor" id="calendarEditor" hidden>
               <div class="calendar-editor-head"><strong id="calendarEditorTitle">新增活動</strong><button class="outline" id="calendarClose" type="button">收合</button></div>
@@ -217,7 +217,7 @@
               <div class="calendar-form-grid">
                 <label>場次名稱<input id="calendarSessionTitle" placeholder="例如 7 月會員說明會"></label>
                 <label>模式<select id="calendarMode"><option value="physical">現場</option><option value="online">線上</option></select></label>
-                <label class="calendar-reward-field">簽到贈點（K點）<input id="calendarCheckinRewardPoints" type="number" min="0" max="1000000" step="1" value="0"><small>0 代表不贈點；同一會員同一場只發一次。</small></label>
+                <label class="calendar-reward-field">簽到點數（正數贈點／負數扣點）<input id="calendarCheckinRewardPoints" type="number" min="-1000000" max="1000000" step="1" value="0"><small>例如 10 代表贈送 10 點，-10 代表扣除 10 點；0 代表不異動。</small></label>
                 <label>活動日期<input id="calendarEventDate" type="date"></label>
                 <label>開始時間<input id="calendarStartsAt" type="time"></label>
                 <label>結束時間<input id="calendarEndsAt" type="time"></label>
@@ -235,7 +235,7 @@
             </div>
             <section class="calendar-smart-checkin" aria-label="固定 QR 智慧報到">
               <h3>固定 QR 智慧報到</h3>
-              <p>現場只需要這一組 QR。會員掃碼後，系統會依目前日曆活動、時間與報名資料判定對應場次並發放課程點數。</p>
+              <p>現場只需要這一組 QR。會員掃碼後，系統會依目前日曆活動、時間與報名資料判定對應場次並異動點數。</p>
               <div class="calendar-smart-qr"><div id="calendarSmartQrImage"></div><div><strong>固定報到 QR</strong><p id="calendarSmartQrUrl" class="calendar-url"></p><div class="calendar-smart-actions"><a id="calendarTestQr" target="_blank" rel="noopener">測試連結</a><button class="outline" id="calendarCopyQr" type="button">複製連結</button></div></div></div>
             </section>
             <div class="calendar-month-head"><button class="outline" id="calendarPrev" type="button">← 上月</button><strong id="calendarMonthTitle"></strong><button class="outline" id="calendarNext" type="button">下月 →</button></div>
@@ -370,6 +370,6 @@
       </section>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="/admin.js?v=20260825-5"></script>
+    <script type="module" src="/admin.js?v=20260825-6"></script>
   </body>
 </html>

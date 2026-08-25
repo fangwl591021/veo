@@ -390,7 +390,7 @@ $("#ruleForm")?.addEventListener("submit", (event) =>
   })).then(() => loadPointRules()),
 );
 const ruleFrequencyLabel = { once:"僅一次", daily:"每日一次", per_completion:"完成給一次" };
-const ruleEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"簽到打卡", course_registered:"課程報名", attendance_verified:"課程簽到", calendar_checkin_reward:"行事曆簽到贈點", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"任務完成", card_collection_reward:"收藏名片成功贈點", admin_points_grant:"後台贈點", admin_points_deduct:"後台扣點", admin_points_backfill:"補登舊點數", daily_ad_view:"簽到觀看", daily_ad_view_completed:"簽到觀看", daily_view:"簽到觀看" };
+const ruleEventLabel = { member_joined:"加入會員", registration_completed:"完成註冊", share_referral:"分享邀約成功", daily_ad_checkin:"簽到打卡", course_registered:"課程報名", attendance_verified:"課程簽到", calendar_checkin_reward:"行事曆簽到點數", referral_attendance_reward:"所屬會員完成獎勵", task_completed:"任務完成", card_collection_reward:"收藏名片成功贈點", admin_points_grant:"後台贈點", admin_points_deduct:"後台扣點", admin_points_backfill:"補登舊點數", daily_ad_view:"簽到觀看", daily_ad_view_completed:"簽到觀看", daily_view:"簽到觀看" };
 async function loadPointRules() {
   const container = $("#ruleList");
   if (!container) return;
@@ -400,7 +400,7 @@ async function loadPointRules() {
       const serviceRule=rule.event_type==="card_collection_reward";
       const deduction=false;
       const direction="贈點";
-      const pointLabel="每次贈送（K點）";
+      const pointLabel="每次贈送（點數）";
       return `<form class="rule-row ${deduction?"deduction-rule":"grant-rule"}" data-rule-id="${rule.id}"><div class="rule-event" data-event-type="${rule.event_type}"><span class="rule-direction ${deduction?"deduct":"grant"}">${direction}</span>${ruleEventLabel[rule.event_type] || rule.event_type}<small>${rule.event_type}</small></div><label>${pointLabel}<input data-rule-field="points" type="number" min="${serviceRule?1:0}" value="${Number(rule.points)}"></label><label>執行頻率<select data-rule-field="frequency">${Object.entries(ruleFrequencyLabel).map(([key,label]) => `<option value="${key}" ${rule.award_frequency === key ? "selected" : ""} ${serviceRule && key !== "per_completion" ? "disabled" : ""}>${serviceRule&&key==="per_completion"?"每次成功交易":label}</option>`).join("")}</select></label><label>狀態<select data-rule-field="status">${["draft","active","paused","archived"].map((value) => `<option value="${value}" ${rule.status === value ? "selected" : ""}>${value === "draft" ? "草稿" : value === "active" ? "啟用" : value === "paused" ? "暫停" : "封存"}</option>`).join("")}</select></label><button class="rule-save" type="submit">儲存${direction}</button></form>`;
     }).join("") : '<p class="muted">尚未建立點數規則。</p>';
   } catch (error) {
@@ -496,18 +496,18 @@ function renderCalendarMonth() {
   for (let day = 1; day <= lastDay; day += 1) {
     const key = `${year}-${calendarPad(month+1)}-${calendarPad(day)}`;
     const rows = calendarEvents.filter(event => calendarDateOnly(event.startsAt) === key);
-    cells.push(`<div class="calendar-cell ${rows.length ? "has-event" : ""}"><b>${day}</b>${rows.slice(0,2).map(event => `<button class="calendar-event" data-calendar-edit="${esc(event.sessionId)}"><small>${esc(calendarTimeOnly(event.startsAt))}</small>${esc(event.title || event.courseTitle)}${Number(event.checkinRewardPoints || 0) > 0 ? `<em>+${Number(event.checkinRewardPoints)}K</em>` : ""}</button>`).join("")}${rows.length > 2 ? `<span class="calendar-more">+${rows.length-2} 場</span>` : ""}</div>`);
+    cells.push(`<div class="calendar-cell ${rows.length ? "has-event" : ""}"><b>${day}</b>${rows.slice(0,2).map(event => { const delta=Number(event.checkinPointsDelta||0); return `<button class="calendar-event" data-calendar-edit="${esc(event.sessionId)}"><small>${esc(calendarTimeOnly(event.startsAt))}</small>${esc(event.title || event.courseTitle)}${delta !== 0 ? `<em>${delta > 0 ? "+" : ""}${delta} 點</em>` : ""}</button>`; }).join("")}${rows.length > 2 ? `<span class="calendar-more">+${rows.length-2} 場</span>` : ""}</div>`);
   }
   while (cells.length % 7) cells.push('<div class="calendar-cell muted-cell"></div>');
   $("#calendarMonth").innerHTML = cells.join("");
   document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit));
 }
-function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => { const reward=Number(event.checkinRewardPoints||0); return `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><span class="calendar-reward-badge ${reward>0?"active":"inactive"}">${reward>0?`簽到 +${reward} K點`:"未設定贈點"}</span><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯活動／贈點</button></div></article>`; }).join("") : '<p class="muted">目前沒有行事曆活動。請按「新增活動／設定贈點」。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
+function renderCalendarList() { const node = $("#calendarList"); node.innerHTML = calendarEvents.length ? calendarEvents.map(event => { const delta=Number(event.checkinPointsDelta||0); const badge=delta>0?`簽到 +${delta} 點`:delta<0?`簽到 ${delta} 點`:"簽到不異動點數"; const badgeClass=delta>0?"active":delta<0?"deduct":"inactive"; return `<article class="calendar-list-item"><div><strong>${esc(event.title || event.courseTitle)}</strong><p>${esc(calendarRange(event))}</p><small>${event.mode === "physical" ? esc(event.venueName || event.venueAddress || "現場") : "線上"}｜報名／簽到 ${esc(calendarTimeOnly(event.checkinOpensAt))}–${esc(calendarTimeOnly(event.checkinClosesAt))}</small></div><div><span class="calendar-reward-badge ${badgeClass}">${badge}</span><button class="outline" data-calendar-edit="${esc(event.sessionId)}">編輯活動／點數</button></div></article>`; }).join("") : '<p class="muted">目前沒有行事曆活動。請按「新增活動／設定點數」。</p>'; document.querySelectorAll("[data-calendar-edit]").forEach(button => button.onclick = () => openCalendarEditor(button.dataset.calendarEdit)); }
 async function loadCalendar() { try { const data = await api('/v1/admin/calendar/events'); calendarEvents = data.events || []; renderFixedCheckinQr(); renderCalendarMonth(); renderCalendarList(); } catch (error) { showStatus(error.message, 'error'); } }
 function clearCalendarEditor() { $("#calendarEditor").hidden = true; $("#calendarEventId").value = ""; calendarStatus(""); }
 function fillCalendarEditor(event, { copy = false } = {}) {
   $("#calendarEditor").hidden = false;
-  $("#calendarEditorTitle").textContent = copy ? "複製活動與贈點設定" : event ? "編輯活動與簽到贈點" : "新增活動與簽到贈點";
+  $("#calendarEditorTitle").textContent = copy ? "複製活動與點數設定" : event ? "編輯活動與簽到點數" : "新增活動與簽到點數";
   $("#calendarEventId").value = copy ? "" : event?.sessionId || "";
   $("#calendarSessionTitle").value = event?.title || "";
   $("#calendarMode").value = event?.mode || "physical";
@@ -524,11 +524,11 @@ function fillCalendarEditor(event, { copy = false } = {}) {
   $("#calendarMeetingUrl").value = event?.meetingUrl || "";
   // The original value is stored only as a hash, so it cannot be copied back safely.
   $("#calendarCheckinCode").value = "";
-  $("#calendarCheckinRewardPoints").value = String(Number(event?.checkinRewardPoints || 0));
+  $("#calendarCheckinRewardPoints").value = String(Number(event?.checkinPointsDelta || 0));
   $("#calendarDelete").hidden = !event || copy;
   calendarStatus(copy
     ? "已複製場次內容。請調整日期與時間後儲存；現場報到碼不會複製，需使用時請重新設定。"
-    : event ? "已載入活動，可調整活動資料與簽到贈點後儲存。" : "填完場次、報到時間、地點與簽到贈點後儲存。", false);
+    : event ? "已載入活動，可調整活動資料與簽到點數後儲存。" : "填完場次、報到時間、地點與簽到點數後儲存。", false);
   $("#calendarEditor").scrollIntoView({behavior:'smooth', block:'start'});
 }
 function openCalendarEditor(id = '') { fillCalendarEditor(calendarEvents.find(row => row.sessionId === id)); }
@@ -558,11 +558,11 @@ async function saveCalendarEvent() {
     coverUrl: $("#calendarCoverUrl").value.trim(),
     meetingUrl: $("#calendarMeetingUrl").value.trim(),
     checkinCode: $("#calendarCheckinCode").value.trim(),
-    checkinRewardPoints: Number($("#calendarCheckinRewardPoints").value),
+    checkinPointsDelta: Number($("#calendarCheckinRewardPoints").value),
     status: "scheduled"
   };
   if (!payload.title) return calendarStatus("請填寫活動名稱。", true);
-  if (!Number.isInteger(payload.checkinRewardPoints) || payload.checkinRewardPoints < 0 || payload.checkinRewardPoints > 1000000) return calendarStatus("簽到贈點請填 0 到 1,000,000 的整數。", true);
+  if (!Number.isInteger(payload.checkinPointsDelta) || Math.abs(payload.checkinPointsDelta) > 1000000) return calendarStatus("簽到點數請填 -1,000,000 到 1,000,000 的整數。", true);
   if (!payload.startsAt || !payload.endsAt || !payload.checkinOpensAt || !payload.checkinClosesAt) {
     return calendarStatus("請填寫活動日期、活動時間與報到起訖時間。", true);
   }
@@ -585,7 +585,7 @@ async function saveCalendarEvent() {
       calendar_title_required: "請填寫活動名稱。",
       missing_calendar_fields: "請填寫活動日期、活動時間與報到起訖時間。",
       invalid_calendar_range: "結束時間必須晚於開始時間；報到結束也必須晚於報到開始。",
-      invalid_checkin_reward_points: "簽到贈點請填 0 到 1,000,000 的整數。",
+      invalid_checkin_points_delta: "簽到點數請填 -1,000,000 到 1,000,000 的整數。",
       course_not_found: "所選課程不存在，請重新選擇或改為不連結既有課程。"
     }[error.message] || error.message;
     calendarStatus(message, true);
