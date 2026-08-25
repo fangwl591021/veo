@@ -305,7 +305,23 @@
               <div><small>平均延遲</small><strong id="aiAverageLatency">0 ms</strong></div>
             </div>
             <div class="ai-usage-table-wrap"><table class="ai-usage-table"><thead><tr><th>時間</th><th>功能</th><th>供應商</th><th>模型</th><th>狀態</th><th>Token</th><th>延遲</th></tr></thead><tbody id="aiUsageRows"><tr><td colspan="7">尚無資料</td></tr></tbody></table></div>
-            <p class="api-key-note">GEMINI_API_KEY 必須使用 Wrangler Secret 設定，不會顯示或儲存在後台。OpenAI 沿用既有加密設定或 Worker Secret。</p>
+            <p class="api-key-note">Gemini 與 OpenAI 都可使用後台加密設定；沒有後台金鑰時才會改用各自的 Worker Secret。</p>
+          </section>
+          <section class="panel api-settings-panel" id="geminiSettingsPanel" hidden>
+            <div class="panel-head">
+              <div>
+                <h2>Gemini API 設定</h2>
+                <p>主要 AI 供應商；只有系統權限管理員可以操作。</p>
+              </div>
+              <span id="geminiSettingsStatus" class="api-key-status">讀取中…</span>
+            </div>
+            <div class="api-key-row">
+              <label>Gemini API Key<input id="geminiAPIKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="貼上 Google AI Studio API Key" /></label>
+              <button id="saveGeminiKey" class="primary" type="button">儲存並驗證</button>
+              <button id="testGeminiSetting" class="secondary" type="button">測試連線</button>
+              <button id="deleteGeminiKey" class="dangerButton" type="button">刪除後台金鑰</button>
+            </div>
+            <p class="api-key-note">金鑰會在 Worker 端以 AES-GCM 加密後存入 D1；頁面、瀏覽器儲存空間與 API 回應都不會取得完整金鑰。</p>
           </section>
           <section class="panel openai-settings-panel" id="openAISettingsPanel" hidden>
             <div class="panel-head">
@@ -348,6 +364,6 @@
       </section>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="/admin.js?v=20260825-2"></script>
+    <script type="module" src="/admin.js?v=20260825-3"></script>
   </body>
 </html>

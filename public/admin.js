@@ -67,6 +67,8 @@ async function overview() {
     if (richMenuNav) richMenuNav.hidden = !adminAccess?.canManageRichMenu;
     const aiProviderPanel = $("#aiProviderPanel");
     if (aiProviderPanel) aiProviderPanel.hidden = !adminAccess?.systemAccess;
+    const geminiSettings = $("#geminiSettingsPanel");
+    if (geminiSettings) geminiSettings.hidden = !adminAccess?.systemAccess;
     const openAISettings = $("#openAISettingsPanel");
     if (openAISettings) openAISettings.hidden = !adminAccess?.systemAccess;
     const x = data.overview;
@@ -113,12 +115,12 @@ function switchPage(page) {
   if (page === "courses") loadCourses();
   if (page === "calendar") loadCalendar();
   if (page === "richmenu") loadRichMenuToken();
-  if (page === "settings" && adminAccess?.systemAccess) { loadOpenAISettings(); loadAIProviderUsage(); }
+  if (page === "settings" && adminAccess?.systemAccess) { loadGeminiSettings(); loadOpenAISettings(); loadAIProviderUsage(); }
 }
 
 function renderAIProviderStatus(data) {
   const gemini=$("#geminiKeyStatus"),openai=$("#aiOpenAIStatus");
-  if(gemini){gemini.textContent=data?.gemini?.configured?("已設定 · "+(data.gemini.model||"")):"尚未設定 GEMINI_API_KEY";gemini.classList.toggle("configured",Boolean(data?.gemini?.configured));}
+  if(gemini){gemini.textContent=data?.gemini?.configured?("已設定 · "+(data.gemini.source==="database"?"後台加密":"Worker Secret")+" · "+(data.gemini.model||"")):"尚未設定 GEMINI_API_KEY";gemini.classList.toggle("configured",Boolean(data?.gemini?.configured));}
   if(openai){openai.textContent=data?.openai?.configured?("已設定 · "+(data.openai.source==="database"?"後台加密":"Worker Secret")):"尚未設定";openai.classList.toggle("configured",Boolean(data?.openai?.configured));}
 }
 function renderAIUsage(data) {
@@ -133,6 +135,17 @@ function renderAIUsage(data) {
 }
 async function loadAIProviderUsage(){try{const [providers,usage]=await Promise.all([api("/v1/admin/ai-providers"),api("/v1/admin/ai-usage?limit=50")]);renderAIProviderStatus(providers);renderAIUsage(usage)}catch(error){showStatus(error.message,"error")}}
 async function testGeminiSetting(button){try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/ai-providers/gemini/test",{});showStatus("Gemini 連線正常 · "+result.model);await loadAIProviderUsage()},{busy:"測試中…",success:"連線正常"})}catch(error){showStatus(error.message,"error")}}
+function renderGeminiSettingsStatus(data) {
+  const status=$("#geminiSettingsStatus"); if(!status)return;
+  const source=data?.source==="database"?"後台加密儲存":data?.source==="environment"?"Worker 環境密鑰":"尚未設定";
+  status.textContent=data?.configured?`${source}${data.masked?` · ${data.masked}`:""}${data.model?` · ${data.model}`:""}`:source;
+  status.classList.toggle("configured",Boolean(data?.configured));
+  const remove=$("#deleteGeminiKey"); if(remove)remove.disabled=data?.source!=="database";
+}
+async function loadGeminiSettings(){try{renderGeminiSettingsStatus(await api("/v1/admin/gemini-settings"))}catch(error){showStatus(error.message,"error")}}
+async function saveGeminiSetting(button){const input=$("#geminiAPIKey"),apiKey=String(input?.value||"").trim();if(!apiKey)return showStatus("請貼上 Gemini API Key","error");try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/gemini-settings",{apiKey},"PUT");input.value="";renderGeminiSettingsStatus(result);await loadAIProviderUsage();showStatus("Gemini API Key 已驗證並加密儲存")},{busy:"驗證儲存中…",success:"已儲存"})}catch(error){showStatus(error.message,"error")}}
+async function testSavedGeminiSetting(button){try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/gemini-settings/test",{});renderGeminiSettingsStatus(result);showStatus("Gemini API 連線正常 · "+result.model)},{busy:"測試連線中…",success:"連線正常"})}catch(error){showStatus(error.message,"error")}}
+async function removeGeminiSetting(button){if(!confirm("確定刪除後台儲存的 Gemini API Key？刪除後將改用 Worker 環境密鑰（若有設定）。"))return;try{await withButtonFeedback(button,async()=>{const result=await api("/v1/admin/gemini-settings",undefined,"DELETE");renderGeminiSettingsStatus(result);await loadAIProviderUsage();showStatus(result.configured?"後台金鑰已刪除，已改用 Worker 環境密鑰":"Gemini API Key 已刪除")},{busy:"刪除中…",success:"已刪除"})}catch(error){showStatus(error.message,"error")}}
 function renderOpenAIStatus(data) {
   const status=$("#openAIKeyStatus"); if(!status)return;
   const source=data?.source==="database"?"後台加密儲存":data?.source==="environment"?"Worker 環境密鑰":"尚未設定";
@@ -356,6 +369,9 @@ $("#saveRichMenuToken")?.addEventListener("click", event => saveRichMenuToken(ev
 $("#testRichMenuToken")?.addEventListener("click", event => testRichMenuToken(event.currentTarget));
 $("#refreshAIUsage")?.addEventListener("click",event=>withButtonFeedback(event.currentTarget,loadAIProviderUsage,{busy:"讀取中…",success:"已更新"}));
 $("#testGeminiKey")?.addEventListener("click",event=>testGeminiSetting(event.currentTarget));
+$("#saveGeminiKey")?.addEventListener("click",event=>saveGeminiSetting(event.currentTarget));
+$("#testGeminiSetting")?.addEventListener("click",event=>testSavedGeminiSetting(event.currentTarget));
+$("#deleteGeminiKey")?.addEventListener("click",event=>removeGeminiSetting(event.currentTarget));
 $("#saveOpenAIKey")?.addEventListener("click",event=>saveOpenAISetting(event.currentTarget));
 $("#testOpenAIKey")?.addEventListener("click",event=>testOpenAISetting(event.currentTarget));
 $("#deleteOpenAIKey")?.addEventListener("click",event=>removeOpenAISetting(event.currentTarget));

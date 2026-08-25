@@ -111,9 +111,14 @@ import {
 import {
   createAiProviderRouter,
   getAiUsageReport,
-  getGeminiKeyStatus,
-  testGeminiConnection,
 } from "./ai-provider-router.js";
+import {
+  deleteGeminiKey,
+  getGeminiKeyStatus,
+  resolveGeminiKey,
+  saveGeminiKey,
+  testGeminiKey,
+} from "./gemini-settings.js";
 import {
   getMemberCrmInsight,
   processMemberCrmInsight,
@@ -271,11 +276,12 @@ function walletScanResultHtml(result, status = result?.ok ? 200 : 410) {
   });
 }
 async function resolveCardAiProvider(env, userId = "") {
+  const geminiApiKey = await resolveGeminiKey(env.DB, env.SESSION_SIGNING_SECRET, env.GEMINI_API_KEY);
   const openaiApiKey = await resolveOpenAIKey(env.DB, env.SESSION_SIGNING_SECRET, env.OPENAI_API_KEY);
   return createAiProviderRouter({
     db: env.DB,
     userId,
-    geminiApiKey: env.GEMINI_API_KEY,
+    geminiApiKey,
     openaiApiKey,
     geminiModel: env.GEMINI_MODEL,
     openaiModel: env.OPENAI_FALLBACK_MODEL,
@@ -1783,7 +1789,7 @@ async function app(request, env, ctx) {
     if (url.pathname.startsWith("/v1/admin/rich-menu") && !admin.adminAccess.canManageRichMenu) {
       return json({ success: false, error: "圖文選單管理權限不足" }, 403);
     }
-    if ((url.pathname.startsWith("/v1/admin/openai-settings") || url.pathname.startsWith("/v1/admin/ai-")) && !admin.adminAccess.systemAccess) {
+    if ((url.pathname.startsWith("/v1/admin/gemini-settings") || url.pathname.startsWith("/v1/admin/openai-settings") || url.pathname.startsWith("/v1/admin/ai-")) && !admin.adminAccess.systemAccess) {
       return json({ success: false, error: "只有系統權限管理員可設定 API 金鑰" }, 403);
     }
     if (request.method === "GET" && url.pathname === "/v1/admin/blog/posts") {
@@ -1818,12 +1824,12 @@ async function app(request, env, ctx) {
         success:true,
         primary:"gemini",
         fallback:"openai",
-        gemini:getGeminiKeyStatus(env.GEMINI_API_KEY, env.GEMINI_MODEL),
+        gemini:await getGeminiKeyStatus(env.DB, env.GEMINI_API_KEY, env.GEMINI_MODEL),
         openai:await getOpenAIKeyStatus(env.DB, env.OPENAI_API_KEY),
       });
     }
     if (request.method === "POST" && url.pathname === "/v1/admin/ai-providers/gemini/test") {
-      try { return json({ success:true, ...(await testGeminiConnection(env.GEMINI_API_KEY, env.GEMINI_MODEL)) }); }
+      try { return json({ success:true, ...(await testGeminiKey(env.DB, env.SESSION_SIGNING_SECRET, env.GEMINI_API_KEY, env.GEMINI_MODEL)) }); }
       catch(error) { return badRequest(error.message || "Gemini 連線測試失敗"); }
     }
     if (request.method === "GET" && url.pathname === "/v1/admin/ai-usage") {
@@ -1839,6 +1845,25 @@ async function app(request, env, ctx) {
     }
     if (request.method === "GET" && url.pathname === "/v1/admin/openai-settings") {
       return json({ success:true, ...(await getOpenAIKeyStatus(env.DB, env.OPENAI_API_KEY)) });
+    }
+    if (request.method === "GET" && url.pathname === "/v1/admin/gemini-settings") {
+      return json({ success:true, ...(await getGeminiKeyStatus(env.DB, env.GEMINI_API_KEY, env.GEMINI_MODEL)) });
+    }
+    if (request.method === "PUT" && url.pathname === "/v1/admin/gemini-settings") {
+      try {
+        const result = await saveGeminiKey(env.DB, env.SESSION_SIGNING_SECRET, admin.userId, ((await readJson(request)) || {}).apiKey, env.GEMINI_MODEL);
+        await env.DB.prepare("INSERT INTO audit_logs (id,actor_user_id,subject_user_id,action,metadata_json) VALUES (?,?,?,'admin.gemini_key.updated','{}')").bind(newId('audit'),admin.userId,admin.userId).run();
+        return json({ success:true, ...result });
+      } catch(error) { return badRequest(error.message || "Gemini API 金鑰儲存失敗"); }
+    }
+    if (request.method === "POST" && url.pathname === "/v1/admin/gemini-settings/test") {
+      try { return json({ success:true, ...(await testGeminiKey(env.DB, env.SESSION_SIGNING_SECRET, env.GEMINI_API_KEY, env.GEMINI_MODEL)) }); }
+      catch(error) { return badRequest(error.message || "Gemini 連線測試失敗"); }
+    }
+    if (request.method === "DELETE" && url.pathname === "/v1/admin/gemini-settings") {
+      await deleteGeminiKey(env.DB);
+      await env.DB.prepare("INSERT INTO audit_logs (id,actor_user_id,subject_user_id,action,metadata_json) VALUES (?,?,?,'admin.gemini_key.deleted','{}')").bind(newId('audit'),admin.userId,admin.userId).run();
+      return json({ success:true, ...(await getGeminiKeyStatus(env.DB, env.GEMINI_API_KEY, env.GEMINI_MODEL)) });
     }
     if (request.method === "PUT" && url.pathname === "/v1/admin/openai-settings") {
       try {
