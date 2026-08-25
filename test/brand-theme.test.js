@@ -24,7 +24,7 @@ test("public site uses the coffee-inspired A-kaffit rust theme", () => {
   assert.match(css, /\.ak-home-content\{[^}]*display:flex;flex-direction:column;[^}]*min-height:0;[^}]*overflow:hidden/);
   assert.match(css, /\.ak-content-panel\{[^}]*flex:1 1 auto;[^}]*min-height:0/);
   assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*safe-area-inset-bottom/);
-  assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*grid-template-columns:repeat\(5/);
+  assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*grid-template-columns:repeat\(6/);
   assert.doesNotMatch(css, /#003f2d|#002d21|#24e56f|#004932|#003b2c/);
   assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*background:var\(--ak-cream\)/);
   assert.match(css, /\.ak-home-content>\.ak-content-tabs button\.active\{[^}]*background:#f3d2c1/);
@@ -37,10 +37,10 @@ test("public site uses the coffee-inspired A-kaffit rust theme", () => {
   assert.match(baseCss, /\.media-dialog-close\{[^}]*right:8px;top:8px;width:44px;height:44px/);
   assert.match(baseCss, /html,body,main,main#app\{background:#FFFFBB\}/);
   assert.match(html, /\/styles\.css\?v=20260825-73/);
-  assert.match(html, /\/akaffit-20260801-41\.css\?v=20260825-43/);
+  assert.match(html, /\/akaffit-20260801-41\.css\?v=20260825-44/);
   assert.match(workerHtml, /\/styles\.css\?v=20260825-73/);
-  assert.match(workerHtml, /\/akaffit-20260801-41\.css\?v=20260825-43/);
-  assert.match(html, /\/app-20260815-132\.js\?v=20260825-4/);
+  assert.match(workerHtml, /\/akaffit-20260801-41\.css\?v=20260825-44/);
+  assert.match(html, /\/app-20260815-132\.js\?v=20260825-5/);
   assert.match(worker, /\/index-20260815-133\.txt/);
   assert.match(adminHtml, /圖片請使用 2:3 直式，建議 800 × 1200 px/);
   assert.match(adminHtml, /2:3 等比預覽｜建議 800 × 1200 px/);

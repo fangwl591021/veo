@@ -202,7 +202,7 @@ main#app:has(.ak-dashboard)>.content{box-sizing:border-box;height:100%;min-heigh
 .ak-frozen-nav .ak-feature-grid button:active{background:var(--ak-soft)}
 .ak-feature-grid svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
 .ak-frozen-nav .ak-feature-grid span{display:block;width:100%;overflow:visible;color:inherit;font-size:11px;font-weight:800;line-height:1.15;text-align:center;white-space:nowrap}
-.ak-home-content>.ak-content-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:0 0 auto;gap:0;width:100%;margin:0;padding:0 3px env(safe-area-inset-bottom);border-top:1px solid #e8c7b5;border-bottom:0;background:var(--ak-cream)}
+.ak-home-content>.ak-content-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));flex:0 0 auto;gap:0;width:100%;margin:0;padding:0 3px env(safe-area-inset-bottom);border-top:1px solid #e8c7b5;border-bottom:0;background:var(--ak-cream)}
 .ak-home-content>.ak-content-tabs button{position:relative;display:grid;min-width:0;min-height:54px;place-items:center;align-content:center;gap:2px;padding:3px 2px 2px;border:0;border-radius:0;background:transparent;color:var(--ak-deep);font:800 10px/1.1 inherit;white-space:nowrap}
 .ak-home-content>.ak-content-tabs svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
 .ak-home-content>.ak-content-tabs [data-content-view="facebook"] svg{fill:currentColor;stroke:none}

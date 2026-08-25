@@ -202,7 +202,7 @@ main#app:has(.ak-dashboard)>.content{box-sizing:border-box;height:100%;min-heigh
 .ak-frozen-nav .ak-feature-grid button:active{background:var(--ak-soft)}
 .ak-feature-grid svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
 .ak-frozen-nav .ak-feature-grid span{display:block;width:100%;overflow:visible;color:inherit;font-size:11px;font-weight:800;line-height:1.15;text-align:center;white-space:nowrap}
-.ak-home-content>.ak-content-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:0 0 auto;gap:0;width:100%;margin:0;padding:0 3px env(safe-area-inset-bottom);border-top:1px solid #e8c7b5;border-bottom:0;background:var(--ak-cream)}
+.ak-home-content>.ak-content-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));flex:0 0 auto;gap:0;width:100%;margin:0;padding:0 3px env(safe-area-inset-bottom);border-top:1px solid #e8c7b5;border-bottom:0;background:var(--ak-cream)}
 .ak-home-content>.ak-content-tabs button{position:relative;display:grid;min-width:0;min-height:54px;place-items:center;align-content:center;gap:2px;padding:3px 2px 2px;border:0;border-radius:0;background:transparent;color:var(--ak-deep);font:800 10px/1.1 inherit;white-space:nowrap}
 .ak-home-content>.ak-content-tabs svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
 .ak-home-content>.ak-content-tabs [data-content-view="facebook"] svg{fill:currentColor;stroke:none}
@@ -280,9 +280,5 @@ body.ak-golden-viewing{overflow:hidden}
 .ak-golden-viewer footer strong{color:var(--ak-primary);font-size:16px}
 .ak-golden-viewer footer span{font-size:13px;font-variant-numeric:tabular-nums}
 @media(max-width:350px){.ak-academy-panel>.ak-academy-shell{padding:7px 8px 8px}.ak-academy-heading{padding-bottom:5px}.ak-academy-heading h2{font-size:16px}.ak-academy-course-tabs{padding-bottom:5px}.ak-academy-course-tabs button{min-height:40px;padding:6px 14px;font-size:12px}.ak-golden-journey{padding-top:5px}.ak-golden-arrow{width:40px;height:48px}.ak-golden-footer span{font-size:9px}}
-.ak-course-registration-entry{position:relative;z-index:26;flex:0 0 auto;padding:8px 12px;border-bottom:1px solid #ead4c8;background:#fffdfa}
-.ak-course-registration-entry button{display:grid;width:100%;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;border:1px solid #d9b28f;border-radius:14px;background:linear-gradient(135deg,#fff7dc,#fffdf4);color:var(--ak-deep);padding:11px 13px;text-align:left;box-shadow:0 4px 12px #71301512;cursor:pointer}
-.ak-course-registration-entry svg{width:28px;height:28px;fill:none;stroke:var(--ak-primary);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.ak-course-registration-entry span{display:grid;gap:2px;min-width:0}.ak-course-registration-entry strong{color:var(--ak-primary);font-size:15px}.ak-course-registration-entry small{overflow:hidden;color:#705d51;font-size:11px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}.ak-course-registration-entry b{color:var(--ak-primary);font-size:12px;white-space:nowrap}
 .course-page-head>div{min-width:0}.course-page-head p{margin:0;color:#6f7c8f;font-size:12px;line-height:1.5}.course-location{margin:9px 0;color:#8a654b;font-size:12px;font-weight:750}.smart-checkin-actions{display:grid;gap:8px;margin-top:14px}.smart-checkin-actions .btn{margin:0}
-@media(max-width:380px){.ak-course-registration-entry{padding-inline:8px}.ak-course-registration-entry button{gap:8px;padding:10px}.ak-course-registration-entry small{font-size:10px}.course-page-head{align-items:flex-start}.course-page-head p{font-size:11px}}
+@media(max-width:380px){.course-page-head{align-items:flex-start}.course-page-head p{font-size:11px}}

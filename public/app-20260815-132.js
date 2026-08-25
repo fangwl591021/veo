@@ -1343,9 +1343,6 @@ async function home() {
       <button type="button" class="ak-task-summary" data-home-task-toggle aria-expanded="false" aria-controls="homeTaskDetail"><span>今天要推進什麼？</span><b>${esc(taskCount)}</b><svg class="ak-task-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5"/></svg></button>
       <div id="homeTaskDetail" class="ak-home-task-detail" data-home-task-detail hidden><div class="ak-home-task-list">${homeTaskListMarkup(taskSummary)}</div><button type="button" class="ak-task-all" data-home-action="tasks">查看全部任務</button></div>
     </section>
-    <section class="ak-course-registration-entry" aria-label="活動報名入口">
-      <button type="button" data-home-action="courses">${portalIcon("courses")}<span><strong>活動報名</strong><small>先完成報名，活動時間內再掃描固定 QR 簽到</small></span><b>查看活動 ›</b></button>
-    </section>
     <section class="ak-home-content">
       <div class="ak-frozen-nav">
         <div class="ak-feature-grid">
@@ -1364,7 +1361,8 @@ async function home() {
       <section class="ak-instagram-panel ak-content-panel hidden" data-content-panel="instagram" aria-label="A’kaffit Instagram"><iframe class="ak-instagram-frame" title="A’kaffit Instagram" src="https://www.instagram.com/akaffit/embed/" loading="lazy" scrolling="yes" frameborder="0" allowtransparency="true"></iframe><div class="ak-instagram-more"><p>Instagram 官方預覽顯示近期貼文</p><a href="https://www.instagram.com/akaffit/" target="_blank" rel="noopener noreferrer">查看更多 Instagram 貼文 ↗</a></div></section>
       <section class="ak-official-import ak-content-panel hidden" data-content-panel="official" aria-label="A’kaffit 官方網站"><div class="ak-official-import-loading">A’kaffit 官網載入中…</div><iframe class="ak-official-import-frame" title="A’kaffit 官方網站" src="/akaffit-official" loading="lazy"></iframe></section>
       <section class="ak-academy-panel ak-content-panel hidden" data-content-panel="academy" aria-label="咖啡學院">${goldenJourneyMarkup()}</section>
-      <div class="ak-content-tabs" role="tablist" aria-label="品牌內容切換">
+      <div class="ak-content-tabs" role="tablist" aria-label="首頁功能頁籤">
+        <button type="button" role="tab" aria-selected="false" data-home-action="courses">${portalIcon("courses")}<span>活動報名</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="youtube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>YouTube</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 21v-8h2.8l.5-3h-3.3V8.1c0-.9.3-1.6 1.7-1.6H18V3.8c-.6-.1-1.4-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3V10H8.5v3h2.8v8z"/></svg><span>Facebook</span></button>
         <button type="button" role="tab" aria-selected="false" data-content-view="instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.8" r=".8"/></svg><span>Instagram</span></button>
@@ -1586,7 +1584,7 @@ async function courses() {
   const activityHeader = `<div class="course-page-head"><div><h2>活動報名</h2><p>請先完成報名；到了簽到時間，再掃描現場固定 QR 完成簽到。</p></div><button class="course-record-tag ${state.courseView === "records" ? "active" : ""}" data-course-view="${state.courseView === "records" ? "catalog" : "records"}">${state.courseView === "records" ? "活動列表" : "我的報名"}</button></div>`;
   const statusOf = (session) => session.attendanceStatus === "verified" ? ["已完成", "completed"] : session.registrationStatus === "cancelled" ? ["已取消", "cancelled"] : ["已報名", "registered"];
   const records = mine.sessions.length
-    ? `<section class="course-records">${mine.sessions.map((s) => { const [status, type] = statusOf(s); return `<article class="course-record-card"><div class="course-record-top"><div><small>場次紀錄</small><h3>${esc(s.courseTitle || s.title)}</h3></div><span class="course-status ${type}">${status}</span></div><p class="course-record-id">${esc(s.sessionId)}</p><div class="course-record-details"><div><span>活動日期</span><b>${esc(formatCourseDate(s.startsAt))}</b></div><div><span>活動時間</span><b>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</b></div><div><span>報名時間</span><b>${esc(formatRecordTime(s.registeredAt))}</b></div><div><span>${s.attendanceStatus === "verified" ? "簽到時間" : "報到狀態"}</span><b>${s.attendanceStatus === "verified" ? esc(formatRecordTime(s.attendanceAt)) : "尚未簽到"}</b></div></div></article>`; }).join("")}</section>`
+    ? `<section class="course-records">${mine.sessions.map((s) => { const [status, type] = statusOf(s); return `<article class="course-record-card"><div class="course-record-top"><div><small>活動名稱</small><h3>${esc(s.activityName || s.title || s.courseTitle || "未命名活動")}</h3></div><span class="course-status ${type}">${status}</span></div><p class="course-record-id">${esc(s.sessionId)}</p><div class="course-record-details"><div><span>活動日期</span><b>${esc(formatCourseDate(s.startsAt))}</b></div><div><span>活動時間</span><b>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</b></div><div><span>報名時間</span><b>${esc(formatRecordTime(s.registeredAt))}</b></div><div><span>${s.attendanceStatus === "verified" ? "簽到時間" : "報到狀態"}</span><b>${s.attendanceStatus === "verified" ? esc(formatRecordTime(s.attendanceAt)) : "尚未簽到"}</b></div></div></article>`; }).join("")}</section>`
     : '<div class="course-record-empty">目前還沒有報名任何課程</div>';
   const cards = all.sessions.length
     ? `<section class="course-grid">${all.sessions
@@ -1595,7 +1593,7 @@ async function courses() {
             ? `<img class="course-cover" src="${esc(s.coverUrl)}" alt="${esc(s.courseTitle)}">`
             : `<div class="course-cover course-cover-placeholder" aria-hidden="true"><span>✦</span></div>`;
           const locationText = s.mode === "online" ? "線上活動" : (s.venueName || s.venueAddress || "現場活動");
-          return `<article class="card course-card">${image}<div class="course-card-body"><h3>${esc(s.courseTitle || s.title)}</h3><p class="course-description">${esc(s.courseDescription || s.title || "活動說明將於現場提供")}</p><p class="course-location">${esc(locationText)}</p><div class="course-card-footer"><div><strong>${esc(formatCourseDate(s.startsAt))}</strong><span>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</span></div><button class="btn" data-register="${s.sessionId}" ${registered.has(s.sessionId) ? "disabled" : ""}>${registered.has(s.sessionId) ? "已報名" : "立即報名"}</button></div></div></article>`;
+          return `<article class="card course-card">${image}<div class="course-card-body"><h3>${esc(s.activityName || s.title || s.courseTitle || "未命名活動")}</h3><p class="course-description">${esc(s.courseDescription || s.title || "活動說明將於現場提供")}</p><p class="course-location">${esc(locationText)}</p><div class="course-card-footer"><div><strong>${esc(formatCourseDate(s.startsAt))}</strong><span>${esc(formatCourseTime(s.startsAt))}–${esc(formatCourseTime(s.endsAt))}</span></div><button class="btn" data-register="${s.sessionId}" ${registered.has(s.sessionId) ? "disabled" : ""}>${registered.has(s.sessionId) ? "已報名" : "立即報名"}</button></div></div></article>`;
         }).join("")}</section>`
     : '<div class="card muted">目前沒有公開課程</div>';
   layout(`${activityHeader}${scanNotice ? `<div class="notice">${esc(scanNotice)}</div>` : ""}${state.courseView === "records" ? records : cards}`);

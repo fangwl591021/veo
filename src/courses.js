@@ -11,6 +11,7 @@ function publicSession(row) {
   return {
     sessionId: row.session_id,
     courseId: row.course_id,
+    activityName: row.session_title || row.course_title,
     courseTitle: row.course_title,
     courseDescription: row.course_description,
     coverUrl: row.session_cover_url || row.cover_url,

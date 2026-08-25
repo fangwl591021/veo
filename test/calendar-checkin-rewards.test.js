@@ -65,16 +65,19 @@ test("current member and admin surfaces call K points simply points", () => {
 
 test("members can reach registration before scanning the fixed check-in QR", () => {
   for (const app of [read("../public/app.js"), read("../public/app-20260815-132.js")]) {
-    assert.match(app, /class="ak-course-registration-entry" aria-label="活動報名入口"/);
-    assert.match(app, /data-home-action="courses">\$\{portalIcon\("courses"\)\}/);
-    assert.match(app, /先完成報名，活動時間內再掃描固定 QR 簽到/);
+    assert.doesNotMatch(app, /class="ak-course-registration-entry"/);
+    assert.match(app, /class="ak-content-tabs" role="tablist" aria-label="首頁功能頁籤"/);
+    assert.match(app, /data-home-action="courses">\$\{portalIcon\("courses"\)\}<span>活動報名/);
     assert.match(app, /id="openCourseRegistration">前往活動報名/);
     assert.match(app, /error\.message === "registration_required"/);
     assert.match(app, /<h2>活動報名<\/h2>/);
+    assert.match(app, /<small>活動名稱<\/small><h3>\$\{esc\(s\.activityName/);
     assert.match(app, />\$\{registered\.has\(s\.sessionId\) \? "已報名" : "立即報名"\}<\/button>/);
     assert.match(app, /state\.courseView = "records";\s+await courses\(\)/);
   }
   const css = read("../public/akaffit-20260801-41.css");
-  assert.match(css, /\.ak-course-registration-entry/);
+  assert.match(css, /\.ak-home-content>\.ak-content-tabs\{[^}]*repeat\(6/);
   assert.match(css, /\.smart-checkin-actions/);
+  const courses = read("../src/courses.js");
+  assert.match(courses, /activityName: row\.session_title \|\| row\.course_title/);
 });
