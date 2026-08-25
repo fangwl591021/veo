@@ -8,6 +8,7 @@ test("public site uses the coffee-inspired A-kaffit rust theme", () => {
   const css = source("public/akaffit.css");
   const baseCss = source("public/styles.css");
   const html = source("public/index.html");
+  const workerHtml = source("public/index-20260815-133.txt");
   const worker = source("src/index.js");
   const adminHtml = source("public/admin.html");
   const adminRouteHtml = source("public/admin/index.html");
@@ -15,7 +16,7 @@ test("public site uses the coffee-inspired A-kaffit rust theme", () => {
   assert.match(css, /--ak-primary:#b95121/);
   assert.match(css, /--ak-deep:#713015/);
   assert.match(css, /--ak-accent:#d78358/);
-  assert.match(css, /--ak-cream:#fff8f3/);
+  assert.match(css, /--ak-cream:#FFFFBB/);
   assert.match(css, /--ak-soft:#f9e9df/);
   assert.match(css, /--ak-ink:#3d2920/);
   assert.match(css, /main#app:has\(\.ak-dashboard\)\{height:100svh;min-height:100svh;max-height:100svh;overflow:hidden/);
@@ -34,8 +35,11 @@ test("public site uses the coffee-inspired A-kaffit rust theme", () => {
   assert.doesNotMatch(css, /\.ak-daily-panel \.daily-media\{[^}]*object-fit/);
   assert.match(baseCss, /\.media-dialog\{[^}]*z-index:1000[^}]*safe-area-inset-top/);
   assert.match(baseCss, /\.media-dialog-close\{[^}]*right:8px;top:8px;width:44px;height:44px/);
-  assert.match(html, /\/styles\.css\?v=20260825-72/);
-  assert.match(html, /\/akaffit-20260801-41\.css/);
+  assert.match(baseCss, /html,body,main,main#app\{background:#FFFFBB\}/);
+  assert.match(html, /\/styles\.css\?v=20260825-73/);
+  assert.match(html, /\/akaffit-20260801-41\.css\?v=20260825-42/);
+  assert.match(workerHtml, /\/styles\.css\?v=20260825-73/);
+  assert.match(workerHtml, /\/akaffit-20260801-41\.css\?v=20260825-42/);
   assert.match(html, /\/app-20260815-132\.js\?v=20260825-2/);
   assert.match(worker, /\/index-20260815-133\.txt/);
   assert.match(adminHtml, /圖片請使用 2:3 直式，建議 800 × 1200 px/);

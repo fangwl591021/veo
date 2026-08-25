@@ -6,7 +6,7 @@
     "Noto Sans TC",
     sans-serif;
   color: #14253d;
-  background: #f6f8fc;
+  background: #FFFFBB;
 }
 * {
   box-sizing: border-box;
@@ -97,6 +97,7 @@ body {
 .main {
   grid-column: 2;
   min-width: 0;
+  background: #FFFFBB;
 }
 .topbar {
   min-height: 105px;

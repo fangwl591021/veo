@@ -140,6 +140,9 @@
 /* LIFF 手機畫面：鎖定於裝置視窗，避免長網址或名片內容撐寬後整頁被縮小。 */
 html,body{width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 body{touch-action:pan-y}
+
+/* VEO system background */
+html,body,main,main#app{background:#FFFFBB}
 main#app{position:relative;width:100%;max-width:620px;overflow-x:clip}
 main#app>*,.content,.business-card,.business-card-detail,.line-source-ecard,.line-source-ecard-top,.line-source-canvas-tools,.line-source-preview,.line-source-share{min-width:0;max-width:100%}
 .line-source-ecard input,.line-source-ecard textarea,.line-source-ecard select,.line-source-share label{min-width:0;max-width:100%}

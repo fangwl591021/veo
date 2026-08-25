@@ -1,4 +1,4 @@
-:root{--ak-primary:#b95121;--ak-deep:#713015;--ak-accent:#d78358;--ak-cream:#fff8f3;--ak-soft:#f9e9df;--ak-ink:#3d2920;--ak-green:var(--ak-primary);--ak-gold:var(--ak-accent)}
+:root{--ak-primary:#b95121;--ak-deep:#713015;--ak-accent:#d78358;--ak-cream:#FFFFBB;--ak-soft:#f9e9df;--ak-ink:#3d2920;--ak-green:var(--ak-primary);--ak-gold:var(--ak-accent)}
 body:has(.ak-dashboard){overflow:hidden;background:var(--ak-cream)}
 .ak-dashboard{height:calc(100svh - 112px);min-height:0;margin:0 -16px -24px;overflow:hidden;background:var(--ak-cream);padding-bottom:0;color:var(--ak-ink)}
 .ak-home-banner{position:relative;z-index:19;margin:-18px -16px 0;background:radial-gradient(circle at 82% 10%,rgba(255,196,158,.22),transparent 38%),linear-gradient(135deg,var(--ak-primary),var(--ak-deep))}

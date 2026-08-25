@@ -84,6 +84,8 @@ async function overview() {
   }
 }
 function switchPage(page) {
+  if (!Object.prototype.hasOwnProperty.call({dashboard:1,members:1,cards:1,points:1,courses:1,calendar:1,carousel:1,richmenu:1,settings:1}, page)) page = "dashboard";
+  if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
   document.body.classList.toggle("template-page", page === "carousel");
   document
     .querySelectorAll("[data-content]")
@@ -93,7 +95,7 @@ function switchPage(page) {
   document
     .querySelectorAll("[data-page]")
     .forEach((node) =>
-      node.classList.toggle("active", node.dataset.page === (page === "calendar" ? "courses" : page)),
+      node.classList.toggle("active", node.dataset.page === page),
     );
   const names = {
     dashboard: ["VEO營運統計中心", "VEO 會員、點數、簽到與內容即時概況"],
@@ -651,7 +653,10 @@ $("#creativeForm")?.addEventListener("submit", (event) =>
     requiredWatchSeconds: Number($("#creativeSeconds").value),
   })),
 );
-overview();
+overview().then((ok) => {
+  if (ok) switchPage(location.hash.slice(1) || "dashboard");
+});
+window.addEventListener("hashchange", () => switchPage(location.hash.slice(1) || "dashboard"));
 loadAdminIdentity();
 
 // A-KAFFIT 簽到活動模板編輯器，共用同一套會員、活動與點數資料。

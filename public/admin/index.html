@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>VEO營運統計中心</title>
-    <link rel="stylesheet" href="/admin.css?v=20260825-2" />
+    <link rel="stylesheet" href="/admin.css?v=20260825-3" />
   </head>
   <body>
     <div class="shell">
@@ -33,6 +33,9 @@
           </button>
           <button class="nav-item" data-page="carousel">
             <span>▤</span> 簽到內容管理
+          </button>
+          <button class="nav-item" data-page="calendar">
+            <span>▣</span> 行事曆簽到贈點
           </button>
           <button class="nav-item" data-page="richmenu">
             <span>▱</span> 圖文選單
@@ -94,9 +97,9 @@
               <button data-go="points">
                 <b>1</b><span>設定贈點規則</span
                 ><small>註冊、分享、每日簽到</small></button
-              ><button data-go="courses" hidden>
-                <b>2</b><span>建立課程活動</span
-                ><small>現場或線上簽到</small></button
+              ><button data-go="calendar">
+                <b>2</b><span>行事曆簽到贈點</span
+                ><small>建立場次並設定 K點</small></button
               ><button data-go="carousel">
                 <b>3</b><span>新增簽到內容</span
                 ><small>圖片、影片、觀看門檻與贈點</small></button
@@ -367,6 +370,6 @@
       </section>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="/admin.js?v=20260825-4"></script>
+    <script type="module" src="/admin.js?v=20260825-5"></script>
   </body>
 </html>

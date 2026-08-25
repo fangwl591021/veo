@@ -18,6 +18,9 @@ test("calendar label color uses a visual palette instead of asking for HEX", () 
 
 test("admin calendar exposes per-session check-in points", () => {
   for (const html of [read("../public/admin.html"), read("../public/admin/index.html")]) {
+    assert.match(html, /class="nav-item" data-page="calendar"/);
+    assert.match(html, /行事曆簽到贈點/);
+    assert.match(html, /data-go="calendar"/);
     assert.match(html, /id="calendarCheckinRewardPoints"/);
     assert.match(html, /id="calendarNew"[^>]*>＋ 新增活動／設定贈點/);
     assert.match(html, /id="calendarRewardStart"[^>]*>立即設定/);
@@ -29,6 +32,7 @@ test("admin calendar exposes per-session check-in points", () => {
   assert.match(admin, /calendar-reward-badge/);
   assert.match(admin, /編輯活動／贈點/);
   assert.match(admin, /calendarRewardStart/);
+  assert.match(admin, /switchPage\(location\.hash\.slice\(1\) \|\| "dashboard"\)/);
   assert.match(admin, /calendarNew"\)\?\.addEventListener\('click', \(\) => fillCalendarEditor\(\)/);
 });
 
