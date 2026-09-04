@@ -138,12 +138,11 @@ const liffLoginCallbackAtLoad = (() => {
   const params = new URLSearchParams(location.search);
   return params.get("loginResume") === "1" || (params.has("code") && params.has("state"));
 })();
-const inviteLandingKey = () => `veo_invite_landing_${state.invite || "default"}`;
+let inviteLandingDismissed = false;
 const shouldShowInviteLanding = () => Boolean(
   state.invite &&
-  !state.token &&
   !liffLoginCallbackAtLoad &&
-  sessionStorage.getItem(inviteLandingKey()) !== "opened"
+  !inviteLandingDismissed
 );
 // LIFF 的 OAuth code 僅能兌換一次。整個頁面生命週期只能初始化一次，
 // 否則在名片分享時再次 init 會重新使用網址上殘留的 code，導致
@@ -438,7 +437,7 @@ function renderInviteLanding() {
     if (button.disabled) return;
     button.disabled = true;
     button.querySelector("span").textContent = "正在開啟你的商脈…";
-    sessionStorage.setItem(inviteLandingKey(), "opened");
+    inviteLandingDismissed = true;
     document.querySelector(".veo-entry")?.classList.add("is-leaving");
     await wait(420);
     document.body.classList.remove("veo-entry-open");
@@ -476,13 +475,14 @@ async function renderAuthenticatedMember() {
 async function render() {
   // 已有工作階段的會員再次從邀約 QR 進站時，保留單一步驟讓他確認推薦關係；
   // 不自動重導，避免某些 LINE WebView 停在載入畫面。
+  if (state.invite && shouldShowInviteLanding()) return renderInviteLanding();
   if (state.token && state.invite) return renderLogin();
   if (state.pendingCollectedShare?.id) return resumePendingCollectedShare();
   if (state.pendingCardShareId) return resumePendingCardShare();
   if (state.cardShareMode && state.cardShareId) return shareCardFromHeader();
   if (state.publicCard) return publicCard();
   if (state.sharedContact) return publicSharedContact();
-  if (!state.token && state.invite) return shouldShowInviteLanding() ? renderInviteLanding() : renderLogin();
+  if (!state.token && state.invite) return renderLogin();
   try {
     const session = await api("/v1/session");
     if (!session.member) {
@@ -3225,7 +3225,7 @@ async function profile(required = false) {
 
 async function boot() {
   state.config = await (await fetch("/api/config")).json();
-  if (state.invite && !state.token && !liffLoginCallbackAtLoad) {
+  if (state.invite && !liffLoginCallbackAtLoad) {
     try {
       state.invitePage = (await api(`/v1/public/invite-page?invite=${encodeURIComponent(state.invite)}`)).page;
     } catch { state.invitePage = null; }
