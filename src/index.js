@@ -183,6 +183,11 @@ import {
   listPublishedBlogPosts,
   updateBlogPost,
 } from "./blog.js";
+import {
+  getMemberInvitePage,
+  getPublicInvitePage,
+  saveMemberInvitePage,
+} from "./member-invite-page.js";
 
 const json = (data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
@@ -865,6 +870,28 @@ async function app(request, env, ctx) {
       },
     });
   }
+  const invitePageBackground = url.pathname.match(/^\/v1\/invite-page-background\/([^/]+)$/);
+  if (["GET", "HEAD"].includes(request.method) && invitePageBackground) {
+    const userId = decodeURIComponent(invitePageBackground[1]);
+    const row = await env.DB.prepare("SELECT background_r2_key FROM member_invite_pages WHERE platform_user_id = ?")
+      .bind(userId).first();
+    if (!row?.background_r2_key || !env.MEDIA) return new Response("Not found", { status:404 });
+    const object = await env.MEDIA.get(row.background_r2_key);
+    if (!object) return new Response("Not found", { status:404 });
+    return new Response(request.method === "HEAD" ? null : object.body, {
+      headers: {
+        "content-type": object.httpMetadata?.contentType || "image/webp",
+        "cache-control": "public, max-age=300",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
+  if (request.method === "GET" && url.pathname === "/v1/public/invite-page") {
+    const token = String(url.searchParams.get("invite") || "");
+    if (!token || token.length > 512) return badRequest("邀請網址無效");
+    const page = await getPublicInvitePage(env.DB, token, url.origin);
+    return page ? json({ success:true, page }) : json({ success:false, error:"邀請網址無效或已失效" }, 404);
+  }
   const contactImage = url.pathname.match(/^\/v1\/card-collection\/([^/]+)\/image$/);
   if (["GET", "HEAD"].includes(request.method) && contactImage) {
     const member = await currentMember(request, env);
@@ -1014,6 +1041,56 @@ async function app(request, env, ctx) {
       200,
       { "set-cookie": sessionCookie(refreshedSessionToken) },
     );
+  }
+
+  if (request.method === "GET" && url.pathname === "/v1/me/invite-page") {
+    const member = await currentMember(request, env);
+    if (!member) return json({ success:false, error:"Unauthorized" }, 401);
+    return json({ success:true, page:await getMemberInvitePage(env.DB, member.userId, url.origin) });
+  }
+
+  if (request.method === "PUT" && url.pathname === "/v1/me/invite-page") {
+    const member = await currentMember(request, env);
+    if (!member) return json({ success:false, error:"Unauthorized" }, 401);
+    try {
+      await saveMemberInvitePage(env.DB, member.userId, (await readJson(request)) || {});
+      return json({ success:true, page:await getMemberInvitePage(env.DB, member.userId, url.origin) });
+    } catch (error) {
+      return badRequest(error.message || "邀請頁設定儲存失敗");
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/me/invite-page/background") {
+    const member = await currentMember(request, env);
+    if (!member) return json({ success:false, error:"Unauthorized" }, 401);
+    if (!env.MEDIA) return json({ success:false, error:"圖片儲存空間尚未設定" }, 503);
+    try {
+      const form = await request.formData();
+      const file = form.get("background");
+      if (!(file instanceof File)) return badRequest("請選擇入口頁背景圖片");
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return badRequest("背景圖僅支援 JPEG、PNG 或 WebP");
+      if (file.size > 5 * 1024 * 1024) return badRequest("背景圖片不可超過 5MB");
+      const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const key = `invite-page-backgrounds/${member.userId}/${crypto.randomUUID()}.${extension}`;
+      await env.MEDIA.put(key, file.stream(), {
+        httpMetadata:{ contentType:file.type },
+        customMetadata:{ userId:member.userId },
+      });
+      const old = await env.DB.prepare("SELECT background_r2_key FROM member_invite_pages WHERE platform_user_id = ?")
+        .bind(member.userId).first();
+      await env.DB.prepare(`
+        INSERT INTO member_invite_pages (platform_user_id, background_r2_key, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(platform_user_id) DO UPDATE SET background_r2_key = excluded.background_r2_key, updated_at = CURRENT_TIMESTAMP
+      `).bind(member.userId, key).run();
+      if (old?.background_r2_key && old.background_r2_key !== key) {
+        const cleanup = env.MEDIA.delete(old.background_r2_key).catch((error) => console.error("Old invite background cleanup failed", error));
+        if (ctx?.waitUntil) ctx.waitUntil(cleanup); else cleanup.catch(() => null);
+      }
+      return json({ success:true, page:await getMemberInvitePage(env.DB, member.userId, url.origin) }, 201);
+    } catch (error) {
+      return badRequest(error.message || "背景圖片上傳失敗");
+    }
   }
 
   if (request.method === "GET" && url.pathname === "/v1/session") {

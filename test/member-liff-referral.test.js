@@ -106,3 +106,16 @@ test("invited members use LINE Login without a friendship gate", () => {
   assert.match(app, /<button class="btn" id="login"[^>]*>使用 LINE 登入<\/button>/);
   assert.match(app, /LINE 登入成功\\n推薦關係已確立/);
 });
+
+test("new invite visitors see the immersive AI entry before LINE Login", () => {
+  const app = source("public/app.js");
+  const css = source("public/styles.css");
+  assert.match(app, /function renderInviteLanding\(\)/);
+  assert.match(app, /headlineMarkup = esc\(headline\)\.replace\(\/，\/g, "，<br>"\)/);
+  assert.match(app, /啟動我的 AI 商脈/);
+  assert.match(app, /\/v1\/public\/invite-page\?invite=/);
+  assert.match(app, /shouldShowInviteLanding\(\) \? renderInviteLanding\(\) : renderLogin\(\)/);
+  assert.match(app, /if \(!shouldShowInviteLanding\(\) && shouldAutoStartLineLogin\(\)\) await startLogin\(\)/);
+  assert.match(css, /\.veo-entry\{/);
+  assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
+});

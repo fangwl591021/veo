@@ -103,6 +103,7 @@ const pendingCollectedShareFromStorage = () => {
   catch { return null; }
 };
 const state = {
+  invitePage: null,
   config: null,
   token: localStorage.getItem("klinkweb_session") || "",
   member: null,
@@ -137,6 +138,13 @@ const liffLoginCallbackAtLoad = (() => {
   const params = new URLSearchParams(location.search);
   return params.get("loginResume") === "1" || (params.has("code") && params.has("state"));
 })();
+const inviteLandingKey = () => `veo_invite_landing_${state.invite || "default"}`;
+const shouldShowInviteLanding = () => Boolean(
+  state.invite &&
+  !state.token &&
+  !liffLoginCallbackAtLoad &&
+  sessionStorage.getItem(inviteLandingKey()) !== "opened"
+);
 // LIFF 的 OAuth code 僅能兌換一次。整個頁面生命週期只能初始化一次，
 // 否則在名片分享時再次 init 會重新使用網址上殘留的 code，導致
 // "invalid authorization code" 而無法開啟分享對象選擇器。
@@ -390,6 +398,54 @@ async function renderLogin() {
   document.querySelectorAll("[data-phone-auth-mode]").forEach((tab)=>tab.onclick=()=>{phoneAuthMode=tab.dataset.phoneAuthMode === "register" ? "register" : "login";renderLogin();});
   $("#phoneAuthSubmit").onclick = submitPhoneBirthdayAuth;
 }
+function renderInviteLanding() {
+  const page = state.invitePage || {};
+  const theme = ["cosmic", "aurora", "warm"].includes(page.theme) ? page.theme : "cosmic";
+  const headline = page.headline || "你的下一個商機，可能已經在圈裡。";
+  const headlineMarkup = esc(headline).replace(/，/g, "，<br>");
+  const background = page.backgroundUrl
+    ? `<img class="veo-entry-background" src="${esc(page.backgroundUrl)}" alt="${esc(page.displayName || "邀請人")}的邀請頁背景">`
+    : "";
+  const inviter = page.displayName
+    ? `<div class="veo-entry-inviter">${page.pictureUrl ? `<img src="${esc(page.pictureUrl)}" alt="">` : `<span>${esc(page.displayName.slice(0,1))}</span>`}<div><b>${esc(page.displayName)}</b><small>${esc(page.roleTitle || "AI 進化圈夥伴")}</small></div></div>`
+    : "";
+  document.body.classList.add("veo-entry-open");
+  $("#app").innerHTML = `<section class="veo-entry theme-${theme}${background ? " has-background" : ""}" aria-labelledby="veoEntryTitle">
+    ${background}<div class="veo-entry-shade" aria-hidden="true"></div>
+    <div class="veo-entry-aurora" aria-hidden="true"></div>
+    <div class="veo-entry-stars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <header class="veo-entry-brand"><span>V</span><div><b>VEO</b><small>AI EVOLUTION CIRCLE</small></div></header>
+    <div class="veo-entry-visual" aria-hidden="true">
+      <div class="veo-entry-orbit orbit-one"><i></i><i></i><i></i></div>
+      <div class="veo-entry-orbit orbit-two"><i></i><i></i></div>
+      <div class="veo-entry-core"><span>AI</span><small>連結中</small></div>
+      <span class="veo-entry-signal signal-one">找對的人</span>
+      <span class="veo-entry-signal signal-two">看見機會</span>
+      <span class="veo-entry-signal signal-three">推進下一步</span>
+    </div>
+    <div class="veo-entry-copy">${inviter}
+      <small>WELCOME TO YOUR NEXT CONNECTION</small>
+      <h1 id="veoEntryTitle">${headlineMarkup}</h1>
+      <p>${esc(page.tagline || "AI 正在為你連結人脈、任務與機會。")}</p>
+    </div>
+    <div class="veo-entry-action">
+      <button type="button" id="openVeoEntry"><span>${esc(page.ctaText || "啟動我的 AI 商脈")}</span><i>→</i></button>
+      <small>使用 LINE 安全確認身分・首次加入只需一次</small>
+    </div>
+  </section>`;
+  const button = $("#openVeoEntry");
+  button?.addEventListener("click", async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    button.querySelector("span").textContent = "正在開啟你的商脈…";
+    sessionStorage.setItem(inviteLandingKey(), "opened");
+    document.querySelector(".veo-entry")?.classList.add("is-leaving");
+    await wait(420);
+    document.body.classList.remove("veo-entry-open");
+    await renderLogin();
+    await startLogin();
+  });
+}
 function renderSessionRecovery(error) {
   const message = error?.message || "會員資料暫時無法載入";
   $("#app").innerHTML = `<section class="ak-register ak-session-recovery"><div class="ak-register-wordmark">VEO商務中心</div><h1>登入資料仍為你保留</h1><p>${esc(message)}</p><button class="btn" id="retrySession">重新載入首頁</button><button class="btn alt" id="resetSession">改用其他帳號登入</button><em>系統不會因暫時連線失敗而要求你重新註冊。</em></section>`;
@@ -426,7 +482,7 @@ async function render() {
   if (state.cardShareMode && state.cardShareId) return shareCardFromHeader();
   if (state.publicCard) return publicCard();
   if (state.sharedContact) return publicSharedContact();
-  if (!state.token && state.invite) return renderLogin();
+  if (!state.token && state.invite) return shouldShowInviteLanding() ? renderInviteLanding() : renderLogin();
   try {
     const session = await api("/v1/session");
     if (!session.member) {
@@ -1089,7 +1145,7 @@ async function openBlogPost(slug){
   }catch(error){alert(error.message||"文章載入失敗")}
 }
 function bindBlogCards(){document.querySelectorAll("[data-blog-slug]").forEach((button)=>button.onclick=()=>openBlogPost(button.dataset.blogSlug))}
-function bindPortalActions(){document.querySelectorAll("[data-home-action]").forEach((button)=>(button.onclick=async()=>{const action=button.dataset.homeAction;if(action==="share")return showShareQr();if(action==="zodiacPopup")return showZodiacDialog();if(action==="profile")return showProfileDialog(false);if(action==="walletqr"){const panel=$("#walletPanel");if(!panel){state.tab="wallet";return render()}$(".site-home-frame")?.classList.add("hidden");panel.classList.remove("hidden");panel.scrollIntoView({behavior:"smooth",block:"start"});return showWalletQr("homeWalletQr","homeWalletExpire")}state.tab=action==="home"?"home":action==="daily"?"daily":action==="courses"?"courses":action==="card"?"card":action==="zodiac"?"zodiac":action==="cardCollection"?"cardCollection":action==="smartMatch"?"smartMatch":action==="calendar"?"calendar":action==="tasks"?"tasks":"wallet";await render()}));bindOfficialSiteLinks();bindBlogCards();$("#copyInvite")?.addEventListener("click",copyInvite);document.querySelectorAll("[data-close-share]").forEach((node)=>node.addEventListener("click",closeShareQr))}
+function bindPortalActions(){document.querySelectorAll("[data-home-action]").forEach((button)=>(button.onclick=async()=>{const action=button.dataset.homeAction;if(action==="share")return showShareQr();if(action==="zodiacPopup")return showZodiacDialog();if(action==="profile")return showProfileDialog(false);if(action==="walletqr"){const panel=$("#walletPanel");if(!panel){state.tab="wallet";return render()}$(".site-home-frame")?.classList.add("hidden");panel.classList.remove("hidden");panel.scrollIntoView({behavior:"smooth",block:"start"});return showWalletQr("homeWalletQr","homeWalletExpire")}state.tab=action==="home"?"home":action==="daily"?"daily":action==="courses"?"courses":action==="card"?"card":action==="zodiac"?"zodiac":action==="cardCollection"?"cardCollection":action==="smartMatch"?"smartMatch":action==="calendar"?"calendar":action==="tasks"?"tasks":"wallet";await render()}));bindOfficialSiteLinks();bindBlogCards();$("#editInvitePage")?.addEventListener("click",showInvitePageEditor);$("#copyInvite")?.addEventListener("click",copyInvite);document.querySelectorAll("[data-close-share]").forEach((node)=>node.addEventListener("click",closeShareQr))}
 async function mlmMemberPointBalance(fallbackBalance=0){
   mlmPointSyncError="";
   return { balance:Number(fallbackBalance)||0, entries:[], ledgerSource:"local" };
@@ -1369,7 +1425,7 @@ async function home() {
         <button type="button" role="tab" aria-selected="false" data-content-view="academy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h12v7a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM17 10h1.5a2.5 2.5 0 0 1 0 5H17M7 4c0 1 1 1 1 2M11 4c0 1 1 1 1 2M15 4c0 1 1 1 1 2"/></svg><span>咖啡學院</span></button>
       </div>
     </section>
-  </section><section id="sharePanel" class="ak-share-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="sharePanelTitle"><div class="ak-share-backdrop" data-close-share></div><article class="ak-share-card"><button type="button" class="ak-share-close" data-close-share aria-label="關閉專屬分享">×</button><h3 id="sharePanelTitle">專屬分享</h3><p class="muted">朋友掃描或開啟網址後，會帶入你的系統推薦關係。</p><div id="shareQr" class="qr"></div><p id="shareInviteUrl" class="share-invite-url" aria-label="推薦網址"></p><button class="btn alt" id="copyInvite">分享推薦網址</button></article></section>`);
+  </section><section id="sharePanel" class="ak-share-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="sharePanelTitle"><div class="ak-share-backdrop" data-close-share></div><article class="ak-share-card"><button type="button" class="ak-share-close" data-close-share aria-label="關閉專屬分享">×</button><h3 id="sharePanelTitle">專屬分享</h3><p class="muted">朋友掃描或開啟網址後，會先看到你的個人 AI 邀請頁。</p><div id="shareQr" class="qr"></div><p id="shareInviteUrl" class="share-invite-url" aria-label="推薦網址"></p><button class="btn invite-page-edit-button" id="editInvitePage">編輯我的 AI 邀請頁</button><button class="btn alt" id="copyInvite">分享推薦網址</button></article></section>`);
   bindHomeTaskToggle();
   initGoldenJourney();
   $(".ak-official-import-frame")?.addEventListener("load", () => $(".ak-official-import-loading")?.remove(), { once:true });
@@ -1422,6 +1478,68 @@ async function invite() {
 }
 function closeShareQr() {
   $("#sharePanel")?.classList.add("hidden");
+}
+function closeInvitePageEditor() {
+  document.querySelector(".invite-page-editor")?.remove();
+  document.body.classList.remove("invite-page-editor-open");
+}
+function refreshInvitePagePreview(root) {
+  const preview = root.querySelector("[data-invite-preview]");
+  const form = root.querySelector("form");
+  if (!preview || !form) return;
+  const fields = form.elements;
+  preview.className = `invite-page-live-preview theme-${fields.theme.value}`;
+  preview.querySelector("[data-preview-role]").textContent = fields.roleTitle.value || "AI 進化圈夥伴";
+  preview.querySelector("[data-preview-headline]").textContent = fields.headline.value || "你的下一個商機，可能已經在圈裡。";
+  preview.querySelector("[data-preview-tagline]").textContent = fields.tagline.value || "讓 AI 為你連結人脈、任務與機會。";
+  preview.querySelector("[data-preview-cta]").textContent = fields.ctaText.value || "看看我們能創造什麼";
+}
+async function showInvitePageEditor() {
+  closeInvitePageEditor();
+  try {
+    const page = (await api("/v1/me/invite-page")).page || {};
+    const editor = document.createElement("section");
+    editor.className = "invite-page-editor";
+    const profileImage = state.member?.pictureUrl
+      ? `<img src="${esc(state.member.pictureUrl)}" alt="">`
+      : `<span>${esc((state.member?.displayName || "我").slice(0,1))}</span>`;
+    editor.innerHTML = `<div class="invite-page-editor-backdrop" data-close-invite-editor></div><article role="dialog" aria-modal="true" aria-labelledby="inviteEditorTitle"><header><div><small>MY AI INVITATION</small><h2 id="inviteEditorTitle">編輯我的 AI 邀請頁</h2></div><button type="button" data-close-invite-editor aria-label="關閉">×</button></header><div class="invite-page-editor-layout"><section class="invite-page-live-preview theme-${esc(page.theme || "cosmic")}" data-invite-preview>${page.backgroundUrl ? `<img data-preview-background src="${esc(page.backgroundUrl)}" alt="">` : `<div data-preview-background></div>`}<div class="invite-preview-overlay"></div><div class="invite-preview-profile">${profileImage}<div><b>${esc(state.member?.displayName || "我的名字")}</b><small data-preview-role>${esc(page.roleTitle || "AI 進化圈夥伴")}</small></div></div><div class="invite-preview-orb">AI</div><div class="invite-preview-copy"><h3 data-preview-headline>${esc(page.headline || "你的下一個商機，可能已經在圈裡。")}</h3><p data-preview-tagline>${esc(page.tagline || "讓 AI 為你連結人脈、任務與機會。")}</p><span data-preview-cta>${esc(page.ctaText || "看看我們能創造什麼")}</span></div></section><form><label class="invite-background-picker"><b>主視覺照片</b><span>建議 9:16 直式人像，JPEG、PNG、WebP，最大 5MB</span><input name="background" type="file" accept="image/jpeg,image/png,image/webp"></label><label>身分標題<input name="roleTitle" maxlength="80" value="${esc(page.roleTitle || "")}" placeholder="例如：LINE 行銷顧問"></label><label>吸睛開場<textarea name="headline" maxlength="90" rows="2" placeholder="你的下一個商機，可能已經在圈裡。">${esc(page.headline || "")}</textarea></label><label>補充說明<textarea name="tagline" maxlength="140" rows="2" placeholder="讓 AI 為你連結人脈、任務與機會。">${esc(page.tagline || "")}</textarea></label><label>行動按鈕<input name="ctaText" maxlength="30" value="${esc(page.ctaText || "")}" placeholder="看看我們能創造什麼"></label><label>AI 動態風格<select name="theme"><option value="cosmic" ${page.theme === "cosmic" || !page.theme ? "selected" : ""}>宇宙紫藍</option><option value="aurora" ${page.theme === "aurora" ? "selected" : ""}>極光青綠</option><option value="warm" ${page.theme === "warm" ? "selected" : ""}>暖金未來</option></select></label><button class="btn" type="submit">儲存我的邀請頁</button></form></div></article>`;
+    document.body.appendChild(editor);
+    document.body.classList.add("invite-page-editor-open");
+    editor.querySelectorAll("[data-close-invite-editor]").forEach((node) => node.addEventListener("click", closeInvitePageEditor));
+    const form = editor.querySelector("form");
+    const fields = form.elements;
+    form.querySelectorAll("input:not([type=file]),textarea,select").forEach((node) => node.addEventListener("input", () => refreshInvitePagePreview(editor)));
+    fields.background.addEventListener("change", () => {
+      const file = fields.background.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { fields.background.value = ""; return alert("背景圖片不可超過 5MB"); }
+      const image = document.createElement("img");
+      image.dataset.previewBackground = "";
+      image.src = URL.createObjectURL(file);
+      image.alt = "背景預覽";
+      editor.querySelector("[data-preview-background]")?.replaceWith(image);
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = form.querySelector("button[type=submit]");
+      try {
+        await withActionFeedback(button, async () => {
+          await api("/v1/me/invite-page", { method:"PUT", body:JSON.stringify({ roleTitle:fields.roleTitle.value, headline:fields.headline.value, tagline:fields.tagline.value, ctaText:fields.ctaText.value, theme:fields.theme.value }) });
+          const file = fields.background.files?.[0];
+          if (file) {
+            const data = new FormData();
+            data.append("background", file);
+            const response = await fetch("/v1/me/invite-page/background", { method:"POST", headers:{ authorization:`Bearer ${state.token}` }, body:data });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "背景圖片上傳失敗");
+          }
+        }, { busy:"儲存中…", success:"已完成" });
+        closeInvitePageEditor();
+        alert("你的 AI 邀請頁已更新");
+      } catch (error) { alert(error.message || "邀請頁設定儲存失敗"); }
+    });
+  } catch (error) { alert(error.message || "邀請頁設定載入失敗"); }
 }
 async function showShareQr() {
   try {
@@ -3071,8 +3189,13 @@ async function profile(required = false) {
 
 async function boot() {
   state.config = await (await fetch("/api/config")).json();
+  if (state.invite && !state.token && !liffLoginCallbackAtLoad) {
+    try {
+      state.invitePage = (await api(`/v1/public/invite-page?invite=${encodeURIComponent(state.invite)}`)).page;
+    } catch { state.invitePage = null; }
+  }
   await render();
-  if (shouldAutoStartLineLogin()) await startLogin();
+  if (!shouldShowInviteLanding() && shouldAutoStartLineLogin()) await startLogin();
 }boot().catch((e) => {
   $("#app").innerHTML =
     `<section class="center">系統載入失敗：${esc(e.message)}</section>`;

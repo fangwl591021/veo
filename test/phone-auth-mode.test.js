@@ -40,5 +40,5 @@ test('LIFF entry automatically resumes LINE Login after session recovery',()=>{
   assert.match(app,/function shouldAutoStartLineLogin\(\)/);
   assert.match(app,/state\.publicCard \|\| state\.sharedContact\) return false/);
   assert.match(app,/window\.liff\?\.isInClient\?\.\(\)/);
-  assert.match(app,/if \(shouldAutoStartLineLogin\(\)\) await startLogin\(\)/);
+  assert.match(app,/if \(!shouldShowInviteLanding\(\) && shouldAutoStartLineLogin\(\)\) await startLogin\(\)/);
 });
