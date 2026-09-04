@@ -107,14 +107,18 @@ test("invited members use LINE Login without a friendship gate", () => {
   assert.match(app, /LINE 登入成功\\n推薦關係已確立/);
 });
 
-test("new invite visitors see the immersive AI entry before LINE Login", () => {
+test("every fresh invite visit sees the immersive AI entry before LINE Login", () => {
   const app = source("public/app.js");
   const css = source("public/styles.css");
   assert.match(app, /function renderInviteLanding\(\)/);
   assert.match(app, /headlineMarkup = esc\(headline\)\.replace\(\/，\/g, "，<br>"\)/);
   assert.match(app, /啟動我的 AI 商脈/);
   assert.match(app, /\/v1\/public\/invite-page\?invite=/);
-  assert.match(app, /shouldShowInviteLanding\(\) \? renderInviteLanding\(\) : renderLogin\(\)/);
+  assert.match(app, /if \(state\.invite && shouldShowInviteLanding\(\)\) return renderInviteLanding\(\)/);
+  assert.match(app, /let inviteLandingDismissed = false/);
+  assert.match(app, /inviteLandingDismissed = true/);
+  assert.doesNotMatch(app, /veo_invite_landing_/);
+  assert.doesNotMatch(app, /state\.invite && !state\.token && !liffLoginCallbackAtLoad/);
   assert.match(app, /if \(!shouldShowInviteLanding\(\) && shouldAutoStartLineLogin\(\)\) await startLogin\(\)/);
   assert.match(css, /\.veo-entry\{/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
