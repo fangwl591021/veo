@@ -10,6 +10,10 @@ const TASK_STATUSES = new Set(["pending", "completed", "postponed", "cancelled"]
 const TASK_PRIORITIES = new Set(["low", "normal", "high"]);
 const ACTIONS = new Set(["complete", "postpone", "cancel", "note"]);
 const text = (value, max = 1000) => String(value ?? "").trim().slice(0, max);
+// The stable ID survives status changes and AI reason updates in the legacy UI.
+function isAssistantPilotTask(task) {
+  return String(task?.id || "").startsWith("task_pilot_") || task?.ai_reason === "assistant_pilot_confirmed";
+}
 
 function iso(value, fallback = "") {
   const parsed = new Date(value || fallback);
@@ -270,6 +274,11 @@ const NEXT_TASK_SCHEMA = {
 
 export async function generateNextTask(db, provider, userId, taskId) {
   const task = await ownedTask(db, userId, taskId);
+  if (isAssistantPilotTask(task)) {
+    await db.prepare("UPDATE ai_tasks SET ai_status='completed',updated_at=CURRENT_TIMESTAMP WHERE id=? AND platform_user_id=?")
+      .bind(taskId,userId).run();
+    return {created:false,reason:"pilot_task_requires_confirmation"};
+  }
   const existing = await db.prepare("SELECT id FROM ai_tasks WHERE parent_task_id=? AND platform_user_id=? LIMIT 1")
     .bind(taskId, userId).first();
   if (existing) {
@@ -438,6 +447,10 @@ async function pushTelegram(db, env, task, channel) {
 export async function dispatchTaskPush(db, env, taskId, lineToken = "") {
   const task = await db.prepare("SELECT * FROM ai_tasks WHERE id=?").bind(taskId).first();
   if (!task) throw new Error("找不到這筆任務");
+  if (isAssistantPilotTask(task)) return [
+    {channel:"line",status:"skipped",error:"測試任務不發送通知"},
+    {channel:"telegram",status:"skipped",error:"測試任務不發送通知"},
+  ];
   const channel = await getTaskChannels(db, task.platform_user_id);
   const results = [];
   if (channel.lineEnabled) results.push(await pushLine(db, env, task, lineToken));
@@ -450,6 +463,7 @@ export async function dispatchDueTaskPushes(db, env, lineToken = "", now = new D
   const to = new Date(now.getTime() + 20 * 60_000).toISOString();
   const rows = await db.prepare(`SELECT id FROM ai_tasks
     WHERE status IN ('pending','postponed') AND datetime(due_at)>=datetime(?) AND datetime(due_at)<datetime(?)
+      AND id NOT GLOB 'task_pilot_*' AND COALESCE(ai_reason,'')<>'assistant_pilot_confirmed'
     ORDER BY datetime(due_at) LIMIT 50`).bind(from, to).all();
   const results = [];
   for (const row of rows.results || []) results.push({ taskId:row.id, deliveries:await dispatchTaskPush(db, env, row.id, lineToken) });

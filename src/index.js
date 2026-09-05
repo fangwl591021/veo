@@ -1,3 +1,4 @@
+import { handleAssistantPilot } from "./assistant-pilot.js";
 import { personalCardShareLiffHtml } from "./card-share-liff.js";
 import { inviteShareLiffHtml } from "./invite-share-liff.js";
 import {
@@ -693,6 +694,8 @@ async function officialAkaffitSite() {
 
 async function app(request, env, ctx) {
   const url = new URL(request.url);
+  const pilotResponse = await handleAssistantPilot(request, env, { currentMember, resolveAiProvider: resolveCardAiProvider });
+  if (pilotResponse) return pilotResponse;
   let inviteShareToken = "";
   if (request.method === "GET" && url.pathname === "/r/invite-share") {
     inviteShareToken = String(url.searchParams.get("inviteToken") || "").trim();

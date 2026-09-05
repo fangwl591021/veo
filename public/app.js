@@ -1,5 +1,7 @@
 import { CARD_IMAGE_THRESHOLDS, orderQuad, warpPerspective } from "/card-image-smart-20260815-5.js";
 
+import { createAssistantPilotBridge } from "/assistant-pilot-bridge.js?v=20260905-pilot-1";
+
 const OFFICIAL_PAGES = {
   home: "https://www.k-link.com.tw/",
   about: "https://www.k-link.com.tw/about-us%E8%B5%B0%E9%80%B2%E5%BA%B7%E7%AB%8B",
@@ -240,6 +242,19 @@ const api = async (path, options = {}) => {
   if (!r.ok) throw new ApiError(j.error || (r.status >= 500 ? "系統暫時忙碌，請稍後重試" : "操作失敗"), r.status);
   return j;
 };
+const assistantPilot = createAssistantPilotBridge({
+  root: document.querySelector("#app"), api,
+  onNavigate(destination) {
+    if (!["home","wallet","courses","daily","card","zodiac","cardCollection","smartMatch","calendar","tasks","profile"].includes(destination)) return;
+    state.tab = destination;
+    render();
+  },
+  onOverview() { state.tab = "home"; home().catch(renderSessionRecovery); },
+  onAccessDenied(error) {
+    if (error?.status === 401) { state.token = ""; state.member = null; localStorage.removeItem("klinkweb_session"); renderLogin(); }
+    else { state.tab = "home"; home().catch(renderSessionRecovery); }
+  },
+});
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function withActionFeedback(button, task, { busy = "處理中…", success = "已完成" } = {}) {
   if (!button) return task();
@@ -278,6 +293,7 @@ function avatar(member = state.member) {
     : `<span class="avatar placeholder">${esc((member?.displayName || "L").slice(0, 1))}</span>`;
 }
 function layout(body) {
+  assistantPilot.leave();
   const featureCopy = { wallet:["點數錢包","查看目前可用點數與交易紀錄。"], courses:["課程活動","查看課程、完成報名與簽到。"], daily:[state.daily?.campaign?.name || "簽到贈點活動",`向左滑動輪播卡；完成 ${Number(state.daily?.campaign?.requiredCreativeCount) || 0} 項觀看後，即可每日簽到。`], card:["我的名片","編輯並分享你的專屬數位名片。"], zodiac:["星座命理","整合星座、生肖、生命靈數與 AI，提供今日導航。"], cardCollection:["名片收藏","掃描、整理並搜尋你的私人名片簿。"], smartMatch:["智能配對","輸入合作需求，從你的名片收藏中找出適合的人選。"], calendar:["個人行程","管理個人行程、聯絡人生日與提醒。"], tasks:["AI 任務中心","提醒、執行、回報、分析，再自動形成下一步。"], profile:["會員資料","管理你的會員資料與個人資訊。"] };
   const [featureTitle,featureHint] = featureCopy[state.tab] || ["康立行動入口","會員服務與活動入口。"];
   const homeAction = `<button class="feature-header-action feature-home-action" data-home-action="home" aria-label="返回首頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10M9 20v-6h6v6"/></svg><span>返回首頁</span></button>`;
@@ -286,6 +302,7 @@ function layout(body) {
   const memberHeader = state.tab === "home" ? "" : featureHeader;
   $("#app").innerHTML =
     `${memberHeader}<div class="content">${state.tab === "home" ? "" : portalMenu()}${body}</div>`;
+  assistantPilot.addReturnButton(state.member);
   bindPortalActions();
 }
 async function login() {
@@ -329,8 +346,9 @@ async function login() {
   state.token = r.sessionToken;
   localStorage.setItem("klinkweb_session", state.token);
   state.member = r.member;
+  const pilotOwner = assistantPilot.hasEntry && await assistantPilot.authorize(r.member).catch(() => false);
   const invitedReferrer = state.invite ? r.member?.systemReferrer : null;
-  if(state.invite){
+  if(state.invite && !pilotOwner){
     const referrerLabel=invitedReferrer?.displayName||invitedReferrer?.memberNumber||"";
     setTimeout(()=>alert(referrerLabel?`LINE 登入成功\n推薦關係已確立：${referrerLabel}`:"LINE 登入成功，但這組邀請碼未建立新的推薦關係。"),0);
   }
@@ -340,7 +358,8 @@ async function login() {
   state.invite = "";
   loginInProgress = false;
   if (state.courseSession) state.tab = "courses";
-  history.replaceState({}, "", state.tab === "daily" ? `${location.pathname}?tab=daily` : location.pathname);
+  const signedInPath = state.tab === "daily" ? `${location.pathname}?tab=daily` : location.pathname;
+  history.replaceState({}, "", pilotOwner ? assistantPilot.preservePath(signedInPath) : signedInPath);
   await render();
 }
 async function startLogin() {
@@ -384,12 +403,16 @@ async function submitPhoneBirthdayAuth() {
     localStorage.setItem("klinkweb_session", state.token);
     sessionStorage.removeItem("klinkweb_invite");
     state.invite = "";
+    if (assistantPilot.hasEntry && await assistantPilot.authorize(state.member).catch(() => false)) {
+      history.replaceState({}, "", assistantPilot.preservePath(location.pathname));
+    }
     await render();
   } catch (error) {
     alert(error.message || (isLogin ? "登入未完成" : "註冊未完成"));
   }
 }
 async function renderLogin() {
+  assistantPilot.leave();
   const isLogin = phoneAuthMode === "login";
   const lineReady = Boolean(state.config?.liffId);
   $("#app").innerHTML = `<section class="ak-register"><div class="ak-register-wordmark">VEO商務中心</div><h1>使用 LINE 登入</h1><p>以你的 LINE 身分安全登入；第一次使用會建立會員資料，之後會直接回到原帳號。</p><button class="btn" id="login" ${lineReady ? "" : "disabled"}>使用 LINE 登入</button><div class="ak-auth-mode-note" id="loginStatus">${lineReady ? "將使用 LINE 授權確認身分，不需要另外設定密碼。" : "LINE Login 尚未設定，請使用下方備援登入。"}</div><details class="ak-auth-fallback"><summary>其他登入方式：手機＋生日</summary><div class="ak-auth-tabs" role="tablist" aria-label="會員登入與註冊"><button type="button" role="tab" aria-selected="${isLogin}" class="${isLogin ? "active" : ""}" data-phone-auth-mode="login">會員登入</button><button type="button" role="tab" aria-selected="${!isLogin}" class="${!isLogin ? "active" : ""}" data-phone-auth-mode="register">新會員註冊</button></div><div class="ak-auth-mode-note">${isLogin ? "輸入已註冊的手機與生日密碼。" : "確認尚未註冊後，再建立新的會員資料。"}</div><label>手機<input id="registerPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0912345678" maxlength="20"></label><label>生日密碼（民國年月日）<input id="registerBirthday" type="text" inputmode="numeric" autocomplete="bday" placeholder="例如 591021、390305" pattern="[0-9]{6,7}" maxlength="7"></label><button class="btn alt" id="phoneAuthSubmit">${isLogin ? "登入會員中心" : "建立新會員"}</button><em>${isLogin ? "查無會員時，系統不會自動建立帳號。" : "已註冊的手機與生日不會再次建立帳號。"}</em></details></section>`;
@@ -441,11 +464,30 @@ function renderInviteLanding() {
     document.querySelector(".veo-entry")?.classList.add("is-leaving");
     await wait(420);
     document.body.classList.remove("veo-entry-open");
+    if (await resumeAssistantPilotOwner()) return;
     await renderLogin();
     await startLogin();
   });
 }
+async function resumeAssistantPilotOwner() {
+  if (!assistantPilot.hasEntry || !state.token) return false;
+  try {
+    const session = await api("/v1/session");
+    if (!await assistantPilot.authorize(session.member)) return false;
+    state.member = session.member;
+    state.invite = "";
+    sessionStorage.removeItem("klinkweb_invite");
+    history.replaceState({}, "", assistantPilot.preservePath(location.pathname));
+    await renderAuthenticatedMember();
+    return true;
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) return false;
+    renderSessionRecovery(error);
+    return true;
+  }
+}
 function renderSessionRecovery(error) {
+  assistantPilot.leave();
   const message = error?.message || "會員資料暫時無法載入";
   $("#app").innerHTML = `<section class="ak-register ak-session-recovery"><div class="ak-register-wordmark">VEO商務中心</div><h1>登入資料仍為你保留</h1><p>${esc(message)}</p><button class="btn" id="retrySession">重新載入首頁</button><button class="btn alt" id="resetSession">改用其他帳號登入</button><em>系統不會因暫時連線失敗而要求你重新註冊。</em></section>`;
   $("#retrySession").onclick = () => render();
@@ -470,13 +512,18 @@ async function renderAuthenticatedMember() {
   if (state.tab === "calendar") return personalCalendar();
   if (state.tab === "tasks") return taskCenter();
   if (state.tab === "profile") return profile();
+  if (await assistantPilot.mount(state.member)) return;
   return home();
 }
 async function render() {
+  assistantPilot.leave();
   // 已有工作階段的會員再次從邀約 QR 進站時，保留單一步驟讓他確認推薦關係；
   // 不自動重導，避免某些 LINE WebView 停在載入畫面。
   if (state.invite && shouldShowInviteLanding()) return renderInviteLanding();
-  if (state.token && state.invite) return renderLogin();
+  if (state.token && state.invite) {
+    if (await resumeAssistantPilotOwner()) return;
+    return renderLogin();
+  }
   if (state.pendingCollectedShare?.id) return resumePendingCollectedShare();
   if (state.pendingCardShareId) return resumePendingCardShare();
   if (state.cardShareMode && state.cardShareId) return shareCardFromHeader();
@@ -3156,6 +3203,7 @@ function bindProfileForm(dialog, required = false) {
     } catch (error) { alert(error.message); }
   };
   q("#logout")?.addEventListener("click", async () => {
+    assistantPilot.forget();
     try { await api("/v1/auth/logout", { method:"POST", body:"{}" }); } catch {}
     localStorage.removeItem("klinkweb_session");
     state.token = "";
